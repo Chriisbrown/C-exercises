@@ -5,14 +5,27 @@
 #include <vector>
 #include <chrono>
 
+const std::string s = "manytracks.raw";
+
 class hit
 {
     public:
         hit() : id{0}, x_coordinate{0} , y_coordinate{0} , drift_time{0} {}; //default constructor
 
-        hit(int number, int x, int y, int t) : id{number}, x_coordinate{x} , y_coordinate{y} , drift_time{t} {}; //constructor
+        hit(double number, double x, double y, double t) : id{number}, x_coordinate{x} , y_coordinate{y} , drift_time{t} {}; //constructor
 
         hit& operator=(const hit &); //copy assignment
+
+        double &operator[] (int index){
+            double* def = 0;
+            switch (index){
+                case 0: return id;
+                case 1: return x_coordinate;
+                case 2: return y_coordinate;
+                case 3: return drift_time;
+                default: return *def;
+            }
+        }
 
         hit(const hit& h) : id{h.id}, x_coordinate{h.x_coordinate} , y_coordinate{h.y_coordinate} , drift_time{h.drift_time} {}; //copy constructor
 
@@ -30,10 +43,10 @@ class hit
         ~hit(){};
 
     private:
-        int id;
-        int x_coordinate;
-        int y_coordinate;
-        int drift_time;
+        double id;
+        double x_coordinate;
+        double y_coordinate;
+        double drift_time;
 
 };
 
@@ -48,20 +61,21 @@ hit& hit::operator=(const hit& h)
 }
 
 
+
 std::ostream& operator<<(std::ostream& os, const hit& h)
-        {
-            os << "ID: " << h.id << " X:" << h.x_coordinate << " Y: " << h.y_coordinate << " Drift Time: " << h.drift_time << '\n';
+    {
+            os << "Hit_id: " << h.id << " X:" << h.x_coordinate << " Y: " << h.y_coordinate << " Drift Time: " << h.drift_time << '\n';
             return os;
-        }
+    }
 
 
 
-std::vector<int> reading(int start)
+std::vector<double> reading(int start)
 {
     
-    std::ifstream is ("onetrack.raw",std::ios::binary);
+    std::ifstream is (s,std::ios::binary);
     char r[2] = {' ',' '};
-    std::vector<int> return_values = {0,0,0,0};
+    std::vector<double> return_values = {0.0,0.0,0.0,0.0};
 
     if (is){
             for (int j=0;j<2; ++j){
@@ -93,9 +107,14 @@ std::vector<int> reading(int start)
                     drift_time[9-k] = x[9-k];
             }
 
+        double Y_adjusted = y_pos.to_ulong();
         return_values[0] = start;
         return_values[1] = x_pos.to_ulong();
-        return_values[2] = y_pos.to_ulong();
+
+        if (x_pos.to_ulong() % 2 != 0) {
+            Y_adjusted += 0.5;
+        }
+        return_values[2] = Y_adjusted;
         return_values[3] = drift_time.to_ulong();
 
         
@@ -105,15 +124,141 @@ std::vector<int> reading(int start)
 }
 
 
+class event{
+    private:
+        int event_id;
+        std::vector<hit> event_hits;
+    public:
+
+        event() : event_id{0} {};
+        event(int n) : event_id{n} {};
+
+        int get_hit_number() {return event_hits.size();}
+
+        ~event() {};
+
+        hit &operator[] (int index){
+            return event_hits[index];
+        } 
+
+
+        event& read_event();
+
+        void remove_hit(int index){
+            event_hits.erase(event_hits.begin() + index);
+        }
+
+        void print();
+};
+
+
+event& event::read_event(){
+    for (int i=0; i<8; ++i){
+        std::vector<double> reading_vals = reading(i+8*event_id);
+        hit h1(reading_vals[0],reading_vals[1],reading_vals[2],reading_vals[3]);
+        event_hits.push_back(h1);
+    }
+
+    return *this;
+}
+
+
+void event::print(){
+    std::cout << "Event_id: " << event_id << '\n';
+    for (auto h : event_hits){
+        std::cout << h;
+    }
+}
+
+double residual(double& x, double& y, double& a, double& b){
+    return (y - b*x + a)*(y - b*x + a);
+}
+
+
+
+
+void least_squares(event& e)
+{
+    int n = e.get_hit_number();
+    double product = 0.0;
+    double X_mean = 0.0;
+    double Y_mean = 0.0;
+    double X_squared_mean = 0.0;
+    double b = 0.0;
+
+    for (int i=0; i<n; ++i){
+        product += e[i][1]*e[i][2];
+        X_mean += e[i][1];
+        Y_mean += e[i][2];
+        X_squared_mean += e[i][1]*e[i][1];
+    }
+    b = ((product/n) - (X_mean/n)*(Y_mean/n))/((X_squared_mean/n)-((X_mean*X_mean)/(n*n)));
+    double a = Y_mean/n - b*X_mean/n;
+    for (int i=0; i<n; ++i){
+        double res = residual(e[i][1], e[i][2], a, b);
+        if (res > 100){
+            e.remove_hit(i);
+        }
+    }
+    /*
+    std::cout << "initial fit: " << b << '\n';
+    std::cout << "removed: " << n-e.get_hit_number() << " hits\n";
+    std::cout << "===================" << '\n';
+    */
+}
+
+void weighted_least_squares(event& e)
+{
+    int n = e.get_hit_number();
+    double numerator = 0.0;
+    double X_mean = 0.0;
+    double Y_mean = 0.0;
+    double W_mean = 0.0;
+    double denominator = 0.0;
+    double b = 0.0;
+
+
+
+    for (int i=0; i<n; ++i){
+        X_mean += (1000/(25+e[i][3]*e[i][3]))*e[i][1];
+        Y_mean += (1000/(25+e[i][3]*e[i][3]))*e[i][2];
+        W_mean += (1000/(25+e[i][3]*e[i][3]));
+    }
+    X_mean = X_mean/W_mean;
+    Y_mean = Y_mean/W_mean;
+
+    for (int i=0; i<n; ++i){
+        numerator += (1000/(25+e[i][3]*e[i][3]))*(e[i][1]-X_mean)*(e[i][2]-Y_mean);
+        denominator += (1000/(25+e[i][3]*e[i][3]))*(e[i][1]-X_mean)*(e[i][1]-X_mean);
+    }
+
+    
+
+    b = numerator/denominator;
+
+    /*
+
+    std::cout << "weighted fit: " << b << '\n';
+    std::cout << "===================" << '\n';
+     */
+}
+
+
+
+
 int main(){
     auto start = std::chrono::high_resolution_clock::now();  
-    for (int i=0; i<8; ++i){
-
-        std::vector<int> reading_vals = reading(i);
-        hit h1(reading_vals[0],reading_vals[1],reading_vals[2],reading_vals[3]);
-        std::cout << h1;
-
+    for (int k=0; k<1000000; ++k){
+        event E(k);
+        E.read_event();
+        //E.print();
+        least_squares(E);
+        weighted_least_squares(E);
     }
+
+    
+
+    
 
         
         
