@@ -5,7 +5,7 @@
 #include <vector>
 #include <chrono>
 
-const std::string s = "onetrack.raw";
+const std::string s = "manytracks.raw";
 
 class hit
 {
@@ -68,67 +68,43 @@ std::ostream& operator<<(std::ostream& os, const hit& h)
             return os;
     }
 
-
+double bitextractor(u_int16_t buf, int length, int position) 
+{ 
+    return static_cast<double>(((1 << length) - 1) & (buf >> (position))); 
+}
 
 std::vector<double> reading(int start)
 {
     
     std::ifstream is (s,std::ios::binary);
-    char r[2] = {' ',' '};
     std::vector<double> return_values = {0.0,0.0,0.0,0.0};
 
     if (is){
-            for (int j=0;j<2; ++j){
+        u_int16_t val;
 
-                is.seekg (start*2+j);
-                char* buffer = new char;
-                is.read(buffer,1);
-                
-
-
-                r[j] = *buffer;
-
-                delete buffer;
-            }
-
+        is.seekg (start*2);
+        char* buffer = new char[2];
+        is.read(buffer,2);
         
-        std::bitset<16> x(r[0]);
-        std::bitset<16> y(r[1]);
-        std::cout << x <<'\t' << y << '\n';
         
+        val = buffer[1] | (buffer[0] << 8); 
+          
+        delete buffer;
+
+        double x_pos = (bitextractor(val,3,13));
             
-        x = x << 8;
-        x = x ^ y;
-
-        std::cout << x << '\n';
-
-        //std::cout << x << '\n';
-
-        std::bitset<3> x_pos;
-        std::bitset<3> y_pos;
-        std::bitset<10> drift_time;
-
-        for (int k = 0; k < 3; ++k){
-                    x_pos[2-k] = x[15-k];
-                    y_pos[2-k] = x[12-k];
-            }
-        for (int k = 0; k<10; ++k){
-                    drift_time[9-k] = x[9-k];
-            }
-
-        double Y_adjusted = y_pos.to_ulong();
+        double Y_adjusted = bitextractor(val,3,10);
         return_values[0] = start;
-        return_values[1] = x_pos.to_ulong();
+        return_values[1] = x_pos;
 
-        if (x_pos.to_ulong() % 2 != 0) {
+        if (std::fmod(x_pos,2) != 0) {
             Y_adjusted += 0.5;
         }
         return_values[2] = Y_adjusted;
-        return_values[3] = drift_time.to_ulong();
+        return_values[3] = bitextractor(val,10,0);
 
-        
-    }
     is.close();
+    }
     return return_values;
 }
 
@@ -163,7 +139,7 @@ class event{
 
 event& event::read_event(){
     for (int i=0; i<8; ++i){
-        std::vector<double> reading_vals = reading(i+8*event_id);
+        std::vector<double> reading_vals = reading(i+event_id*8);
         hit h1(reading_vals[0],reading_vals[1],reading_vals[2],reading_vals[3]);
         event_hits.push_back(h1);
     }
@@ -261,10 +237,10 @@ void weighted_least_squares(event& e)
 
 int main(){
     auto start = std::chrono::high_resolution_clock::now();  
-    for (int k=0; k<1; ++k){
+    for (int k=0; k<10; ++k){
         event E(k);
         E.read_event();
-        //E.print();
+        E.print();
         least_squares(E);
         weighted_least_squares(E);
     }
