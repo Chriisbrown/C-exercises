@@ -92,7 +92,7 @@ std::vector<double> reading(int start)
             }
 
         
-        std::bitset<16> x(r[0]);
+         
         std::bitset<16> y(r[1]);
         std::cout << x <<'\t' << y << '\n';
         

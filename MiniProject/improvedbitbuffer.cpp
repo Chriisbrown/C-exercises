@@ -50,7 +50,6 @@ class hit
 
 };
 
-
 hit& hit::operator=(const hit& h)
 {
     id = h.id;
@@ -59,8 +58,6 @@ hit& hit::operator=(const hit& h)
     drift_time = h.drift_time;
     return *this;
 }
-
-
 
 std::ostream& operator<<(std::ostream& os, const hit& h)
     {
@@ -73,6 +70,30 @@ double bitextractor(u_int16_t buf, int length, int position)
     return static_cast<double>(((1 << length) - 1) & (buf >> (position))); 
 }
 
+u_int8_t ReverseBits(u_int8_t num)
+{
+    u_int8_t count = 7; 
+    u_int8_t tmp = num;         //  Assign num to the tmp 
+	     
+    num >>= 1; // shift num because LSB already assigned to tmp
+    
+    while(num)
+    {
+       tmp <<= 1;  //shift the tmp because alread have the LSB of num  
+	      
+       tmp |= num & 1; // putting the set bits of num
+       
+       num >>= 1; 
+       
+       count--;
+    }
+    
+    tmp <<= count; //when num become zero shift tmp from the remaining counts
+    
+    return tmp;
+}
+
+
 std::vector<double> reading(int start)
 {
     
@@ -81,14 +102,19 @@ std::vector<double> reading(int start)
 
     if (is){
         u_int16_t val;
+        u_int8_t A;
+        u_int8_t B;
 
         is.seekg (start*2);
         char* buffer = new char[2];
         is.read(buffer,2);
-        
-        
-        val = buffer[1] | (buffer[0] << 8); 
-          
+
+        A = ReverseBits(buffer[0]);
+        B = ReverseBits(buffer[1]);
+
+        val = A;
+        val = ((val << 8) | B  );
+
         delete buffer;
 
         double x_pos = (bitextractor(val,3,13));
@@ -147,14 +173,12 @@ event& event::read_event(){
     return *this;
 }
 
-
 void event::print(){
     std::cout << "Event_id: " << event_id << '\n';
     for (auto h : event_hits){
         std::cout << h;
     }
 }
-
 
 void least_squares(event& e)
 {
@@ -179,11 +203,11 @@ void least_squares(event& e)
             e.remove_hit(i);
         }
     }
-    /*
+    
     std::cout << "initial fit: " << b << '\n';
     std::cout << "removed: " << n-e.get_hit_number() << " hits\n";
     std::cout << "===================" << '\n';
-    */
+    
 }
 
 void weighted_least_squares(event& e)
@@ -195,8 +219,6 @@ void weighted_least_squares(event& e)
     double W_mean = 0.0;
     double denominator = 0.0;
     double b = 0.0;
-
-
 
     for (int i=0; i<n; ++i){
         X_mean += (1000/(400+e[i][3]*e[i][3]))*e[i][1];
@@ -210,8 +232,6 @@ void weighted_least_squares(event& e)
         numerator += (1000/(400+e[i][3]*e[i][3]))*(e[i][1]-X_mean)*(e[i][2]-Y_mean);
         denominator += (1000/(400+e[i][3]*e[i][3]))*(e[i][1]-X_mean)*(e[i][1]-X_mean);
     }
-
-    
 
     b = numerator/denominator;
     double a = Y_mean - b*X_mean;
@@ -237,22 +257,13 @@ void weighted_least_squares(event& e)
 
 int main(){
     auto start = std::chrono::high_resolution_clock::now();  
-    for (int k=0; k<10; ++k){
+    for (int k=0; k<1000000; ++k){
         event E(k);
         E.read_event();
-        E.print();
-        least_squares(E);
-        weighted_least_squares(E);
+        //E.print();
+        //least_squares(E);
+        //weighted_least_squares(E);
     }
-
-    
-
-    
-
-        
-        
-        
-    
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = finish - start;
     std::cout << "Elapsed time: " << elapsed.count() << " s\n";
