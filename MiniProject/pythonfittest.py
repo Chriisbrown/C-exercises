@@ -6,8 +6,8 @@ import numpy as np
 def f(x,A,B):
     return B*x + A
 
-def short_res(a,b,x,y):
-    return np.abs(b*x-y+a)/np.sqrt(b**2+1)
+def short_res(intercept,gradient,x,y):
+    return np.abs(-gradient*x + y - intercept)/np.sqrt(gradient**2 + 1)
 
 def least_squares(x,y,r):
     product = 0
@@ -36,6 +36,9 @@ def least_squares(x,y,r):
 def w(r):
     return (1000/(r**2 + 400))
 
+def w2(r):
+    return r**2/1000
+
 
 
 
@@ -56,7 +59,55 @@ def weighted_least_squares(x,y,r):
 
     for i in range(len(x)):
         res = (short_res(a,b,x[i],y[i]))
-        print(res-w(r[i]))
+        if res>2:
+            deletes.append(i)
+
+    x = np.delete(x,deletes)
+    y = np.delete(y,deletes)
+    r = np.delete(r,deletes)
+
+
+    return(x,y,r,a,b)
+    
+    
+
+def drift_time(a,b,x,y,r):
+    speed = np.zeros(8)
+    res = np.zeros(8)
+    for i in range(len(x)):
+        res[i] = (short_res(a,b,x[i],y[i]))
+        speed[i] = res[i]/r[i]
+
+    mean_speed = (np.mean(speed))
+    R = np.zeros([8])
+    
+
+    for i in range(len(x)):
+        R[i] = res[i]
+        r[i] = res[i]/mean_speed 
+        
+    return(r,R)
+
+
+
+
+def drift_time_fit(x,y,r):
+    x_w = np.sum(w2(r)*x)/np.sum(w2(r))
+    y_w = np.sum(w2(r)*y)/np.sum(w2(r))
+
+    numerator = 0
+    denominator = 0
+
+    for i in range(len(x)):
+        numerator += w2(r[i]) *(x[i]-x_w)*(y[i]-y_w)
+        denominator += w2(r[i]) * (x[i]-x_w)**2
+
+    b = numerator/denominator
+    a = y_w - b*x_w
+    deletes = []
+
+    for i in range(len(x)):
+        res = (short_res(a,b,x[i],y[i]))
         if res>2:
             deletes.append(i)
 
@@ -67,15 +118,54 @@ def weighted_least_squares(x,y,r):
 
     return(x,y,r,a,b)
 
+def hit_finder(x,y,r,a,b):
+    hit_x = np.zeros([8])
+    hit_y = np.zeros([8])
+
+    for i in range(8):
+        c = (x[i]/a + y[i])
+        m = -1/a
+
+        A = (1+m**2)
+        B = 2*(m*c-m*y[i] - x[i])
+        C = (y[i]**2 - r[i]**2 + x[i]**2 - 2*c*y[i] + c**2)
+
+        
+
+
+        x_plus = (-B+(B**2 - 4*A*C)**(1/2))/(2*A)
+        x_minus = (-B-(B**2 - 4*A*C)**(1/2))/(2*A)
+
+        y_plus = m*x_plus + c
+        y_minus = m*x_minus + c
+
+        if short_res(b,a,x_plus,y_plus) > short_res(b,a,x_minus,y_minus):
+            hit_x[i] = x_minus
+            hit_y[i] = y_minus
+        else:
+            hit_x[i] = x_plus
+            hit_y[i] = y_plus
+        
+
+
+
+    return hit_x,hit_y
+
+
+def plot(x,y,r):
+    for i in range(len(x)):
+        circle1=plt.Circle((x[i],y[i]),r[i],color='r')
+        plt.gcf().gca().add_artist(circle1)
+
+
 fig = plt.figure()
 ax = fig.add_subplot(111,aspect='equal')
-x = np.array([0,4,2,6,1,5,3,7])
-y = np.array([2,2,2,2,2.5,2.5,6.5,2.5])
-r = np.array([576,212,1008,796,68,864,500,720])
-
-for i in range(len(x)):
-    circle1=plt.Circle((x[i],y[i]),r[i]/1000,color='r')
-    plt.gcf().gca().add_artist(circle1)
+x = np.array([0,1,2,3,4,5,6,7])
+y = np.array([2,2.5,3,3.5,3,3.5,4,3.5])
+r = np.array([146,35,75,184,80,29,139,124])
+R = np.zeros([8])
+hit_x = np.zeros([8])
+hit_y = np.zeros([8])
 
 
 x,y,r,a_own, b_own = least_squares(x,y,r)
@@ -84,21 +174,41 @@ x,y,r,a_own, b_own = least_squares(x,y,r)
 
 x,y,r,w_a_own, w_b_own = weighted_least_squares(x,y,r)
 
-    
+r,R = drift_time(w_a_own,w_b_own,x,y,r)
 
+plot(x,y,R)
+
+
+
+
+hit_x,hit_y = hit_finder(x,y,R,w_b_own,w_a_own)
+
+
+
+
+x,y,r,dt_a_own,dt_b_own = drift_time_fit(hit_x,hit_y,r)
+
+r,R = drift_time(dt_a_own,dt_b_own,x,y,r)
+
+
+    
 X_1 = np.linspace(-1,9,10)
 Y_1 = f(X_1,a_own,b_own)
 
 X_2 = np.linspace(-1,9,10)
 Y_2 = f(X_2,w_a_own,w_b_own)
 
+X_3 = np.linspace(-1,9,10)
+Y_3 = f(X_3,dt_a_own,dt_b_own)
 
-plt.plot(X_1,Y_1)
-plt.plot(X_2,Y_2)
+
+#plt.plot(X_1,Y_1)
+#plt.plot(X_2,Y_2)
+plt.plot(X_3,Y_3)
+
 
 plt.xlim(-1,9)
 plt.ylim(-1,9)
-
 
 plt.show()
 

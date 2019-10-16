@@ -65,32 +65,9 @@ std::ostream& operator<<(std::ostream& os, const hit& h)
             return os;
     }
 
-double bitextractor(u_int16_t buf, int length, int position) 
+double bitextractor(short buf, int length, int position) 
 { 
     return static_cast<double>(((1 << length) - 1) & (buf >> (position))); 
-}
-
-u_int8_t ReverseBits(u_int8_t num)
-{
-    u_int8_t count = 7; 
-    u_int8_t tmp = num;         //  Assign num to the tmp 
-	     
-    num >>= 1; // shift num because LSB already assigned to tmp
-    
-    while(num)
-    {
-       tmp <<= 1;  //shift the tmp because alread have the LSB of num  
-	      
-       tmp |= num & 1; // putting the set bits of num
-       
-       num >>= 1; 
-       
-       count--;
-    }
-    
-    tmp <<= count; //when num become zero shift tmp from the remaining counts
-    
-    return tmp;
 }
 
 
@@ -101,25 +78,19 @@ std::vector<double> reading(int start)
     std::vector<double> return_values = {0.0,0.0,0.0,0.0};
 
     if (is){
-        u_int16_t val;
-        u_int8_t A;
-        u_int8_t B;
+        short val;
 
         is.seekg (start*2);
         char* buffer = new char[2];
         is.read(buffer,2);
 
-        A = ReverseBits(buffer[0]);
-        B = ReverseBits(buffer[1]);
-
-        val = A;
-        val = ((val << 8) | B  );
-
+        val = buffer[1];
+        val = ((val << 8) | buffer[0] & 0xff);
         delete buffer;
 
-        double x_pos = (bitextractor(val,3,13));
+        double x_pos = (bitextractor(val,3,0));
             
-        double Y_adjusted = bitextractor(val,3,10);
+        double Y_adjusted = bitextractor(val,3,3);
         return_values[0] = start;
         return_values[1] = x_pos;
 
@@ -127,7 +98,7 @@ std::vector<double> reading(int start)
             Y_adjusted += 0.5;
         }
         return_values[2] = Y_adjusted;
-        return_values[3] = bitextractor(val,10,0);
+        return_values[3] = bitextractor(val,10,6);
 
     is.close();
     }
@@ -257,10 +228,10 @@ void weighted_least_squares(event& e)
 
 int main(){
     auto start = std::chrono::high_resolution_clock::now();  
-    for (int k=0; k<1000000; ++k){
+    for (int k=0; k<1; ++k){
         event E(k);
         E.read_event();
-        //E.print();
+        E.print();
         //least_squares(E);
         //weighted_least_squares(E);
     }
