@@ -31,6 +31,8 @@ def least_squares(x,y,r):
     y = np.delete(y,deletes)
     r = np.delete(r,deletes)
 
+    print(b)
+
     return(x,y,r,a,b)
 
 def w(r):
@@ -79,14 +81,11 @@ def drift_time(a,b,x,y,r):
         speed[i] = res[i]/r[i]
 
     mean_speed = (np.mean(speed))
-    R = np.zeros([8])
     
 
-    for i in range(len(x)):
-        R[i] = res[i]
-        r[i] = res[i]/mean_speed 
+    print("mean speed: ",mean_speed)
         
-    return(r,R)
+    return(mean_speed)
 
 
 
@@ -104,25 +103,18 @@ def drift_time_fit(x,y,r):
 
     b = numerator/denominator
     a = y_w - b*x_w
-    deletes = []
 
-    for i in range(len(x)):
-        res = (short_res(a,b,x[i],y[i]))
-        if res>2:
-            deletes.append(i)
+    return(a,b)
 
-    x = np.delete(x,deletes)
-    y = np.delete(y,deletes)
-    r = np.delete(r,deletes)
-
-
-    return(x,y,r,a,b)
-
-def hit_finder(x,y,r,a,b):
+def hit_finder(x,y,r,a,b,mean_speed):
     hit_x = np.zeros([8])
     hit_y = np.zeros([8])
+    r = r*mean_speed
+
+   
 
     for i in range(8):
+
         c = (x[i]/a + y[i])
         m = -1/a
 
@@ -131,7 +123,6 @@ def hit_finder(x,y,r,a,b):
         C = (y[i]**2 - r[i]**2 + x[i]**2 - 2*c*y[i] + c**2)
 
         
-
 
         x_plus = (-B+(B**2 - 4*A*C)**(1/2))/(2*A)
         x_minus = (-B-(B**2 - 4*A*C)**(1/2))/(2*A)
@@ -146,9 +137,6 @@ def hit_finder(x,y,r,a,b):
             hit_x[i] = x_plus
             hit_y[i] = y_plus
         
-
-
-
     return hit_x,hit_y
 
 
@@ -161,34 +149,35 @@ def plot(x,y,r):
 fig = plt.figure()
 ax = fig.add_subplot(111,aspect='equal')
 x = np.array([0,1,2,3,4,5,6,7])
-y = np.array([2,2.5,3,3.5,3,3.5,4,3.5])
-r = np.array([146,35,75,184,80,29,139,124])
-R = np.zeros([8])
+y = np.array([2,2.5,2,2.5,2,2.5,3,2.5])
+r = np.array([9,172,63,99,136,27,190,45])
 hit_x = np.zeros([8])
 hit_y = np.zeros([8])
 
 
 x,y,r,a_own, b_own = least_squares(x,y,r)
 
+print("gradient: " ,b_own)
     
 
 x,y,r,w_a_own, w_b_own = weighted_least_squares(x,y,r)
 
-r,R = drift_time(w_a_own,w_b_own,x,y,r)
+print("gradient: " ,w_b_own)
 
-plot(x,y,R)
+mean_speed = drift_time(w_a_own,w_b_own,x,y,r)
 
+plot(x,y,r*mean_speed)
 
+for i in range(10):
+    hit_x,hit_y = hit_finder(x,y,r,w_b_own,w_a_own,mean_speed)
 
+    dt_a_own,dt_b_own = drift_time_fit(hit_x,hit_y,r)
 
-hit_x,hit_y = hit_finder(x,y,R,w_b_own,w_a_own)
+    print(i)
+    print("gradient: " ,dt_b_own)
+    print("==============")
 
-
-
-
-x,y,r,dt_a_own,dt_b_own = drift_time_fit(hit_x,hit_y,r)
-
-r,R = drift_time(dt_a_own,dt_b_own,x,y,r)
+    mean_speed = drift_time(dt_a_own,dt_b_own,x,y,r)
 
 
     

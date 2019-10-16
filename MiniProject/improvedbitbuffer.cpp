@@ -23,6 +23,9 @@ class hit
                 case 1: return x_coordinate;
                 case 2: return y_coordinate;
                 case 3: return drift_time;
+                case 4: return hit_position[0];
+                case 5: return hit_position[1];
+
                 default: return *def;
             }
         }
@@ -37,6 +40,12 @@ class hit
             drift_time = t;
         }
 
+        void set_hit_pos(double x, double y){
+                hit_position[0] = x;
+                hit_position[1] = y;
+        }
+        
+
         friend std::ostream& operator<<(std::ostream& os, const hit& h);
         
 
@@ -47,6 +56,8 @@ class hit
         double x_coordinate;
         double y_coordinate;
         double drift_time;
+        double hit_position[2];
+        
 
 };
 
@@ -112,6 +123,10 @@ class event{
         std::vector<hit> event_hits;
     public:
 
+        double fit_gradient;
+        double fit_intercept; 
+        double drift_velocity;
+
         event() : event_id{0} {};
         event(int n) : event_id{n} {};
 
@@ -123,6 +138,20 @@ class event{
             return event_hits[index];
         } 
 
+        void update_fit(double I, double G){
+            fit_intercept = I;
+            fit_gradient = G;
+        }
+
+
+        void update_velocity(double V){
+            drift_velocity = V;
+        }
+
+        hit& return_hit(int index){
+            return event_hits[index];
+        }
+
 
         event& read_event();
 
@@ -131,6 +160,7 @@ class event{
         }
 
         void print();
+        void quick_print();
 };
 
 
@@ -151,6 +181,18 @@ void event::print(){
     }
 }
 
+void event::quick_print(){
+    std::cout << "Event id: " << event_id << '\n';
+    std::cout << "Hit number: " << get_hit_number() << '\n';
+    std::cout << "Event fit: " << fit_gradient << '\n';
+    std::cout << "Event drift velocity: " << drift_velocity << '\n';
+    }
+
+
+double short_res(double I,double G,double X, double Y){
+    return std::fabs((-G*X + Y - I)/std::sqrt(G*G + 1));
+}
+
 void least_squares(event& e)
 {
     int n = e.get_hit_number();
@@ -158,7 +200,6 @@ void least_squares(event& e)
     double X_mean = 0.0;
     double Y_mean = 0.0;
     double X_squared_mean = 0.0;
-    double b = 0.0;
 
     for (int i=0; i<n; ++i){
         product += e[i][1]*e[i][2];
@@ -166,74 +207,136 @@ void least_squares(event& e)
         Y_mean += e[i][2];
         X_squared_mean += e[i][1]*e[i][1];
     }
-    b = ((product/n) - (X_mean/n)*(Y_mean/n))/((X_squared_mean/n)-((X_mean*X_mean)/(n*n)));
-    double a = Y_mean/n - b*X_mean/n;
+
+    double gradient = ((product/n) - (X_mean/n)*(Y_mean/n))/((X_squared_mean/n)-((X_mean*X_mean)/(n*n)));
+    double intercept = Y_mean/n - gradient*X_mean/n;
+
     for (int i=0; i<n; ++i){
-        double res = e[i][2] - ((b*e[i][1]) + a);
+        double res = short_res(intercept,gradient,e[i][1],e[i][2]);
         if (res > 1){
             e.remove_hit(i);
         }
     }
-    
-    std::cout << "initial fit: " << b << '\n';
-    std::cout << "removed: " << n-e.get_hit_number() << " hits\n";
-    std::cout << "===================" << '\n';
-    
+
+    e.update_fit(intercept,gradient);    
 }
 
-void weighted_least_squares(event& e)
+double inverse_weight(double r){
+    return (1000.0/(r*r + 400.0));
+}
+
+double weight(double r){
+    return (r*r/1000.0);
+}
+
+double no_weight(double r){
+    return r;
+}
+
+void weighted_least_squares(event& e, double (*f)(double), bool hit)
 {
+    int shift = 0;
+    if (hit){ shift = 3;}
+    
     int n = e.get_hit_number();
     double numerator = 0.0;
     double X_mean = 0.0;
     double Y_mean = 0.0;
     double W_mean = 0.0;
     double denominator = 0.0;
-    double b = 0.0;
+
 
     for (int i=0; i<n; ++i){
-        X_mean += (1000/(400+e[i][3]*e[i][3]))*e[i][1];
-        Y_mean += (1000/(400+e[i][3]*e[i][3]))*e[i][2];
-        W_mean += (1000/(400+e[i][3]*e[i][3]));
+        X_mean += f(e[i][3])*e[i][1+shift];
+        Y_mean += f(e[i][3])*e[i][2+shift];
+        W_mean += f(e[i][3]);
     }
     X_mean = X_mean/W_mean;
     Y_mean = Y_mean/W_mean;
 
     for (int i=0; i<n; ++i){
-        numerator += (1000/(400+e[i][3]*e[i][3]))*(e[i][1]-X_mean)*(e[i][2]-Y_mean);
-        denominator += (1000/(400+e[i][3]*e[i][3]))*(e[i][1]-X_mean)*(e[i][1]-X_mean);
+        numerator += f(e[i][3])*(e[i][1+shift]-X_mean)*(e[i][2+shift]-Y_mean);
+        denominator += f(e[i][3])*(e[i][1+shift]-X_mean)*(e[i][1+shift]-X_mean);
     }
 
-    b = numerator/denominator;
-    double a = Y_mean - b*X_mean;
+    double gradient = numerator/denominator;
+    double intercept = Y_mean - gradient*X_mean;
 
-
-    for (int i=0; i<n; ++i){
-        double res = e[i][2] - ((b*e[i][1]) + a);
-        if (res > 5){
-            e.remove_hit(i);
-        }
-    }
-
+    e.update_fit(intercept,gradient);
     
-
-    std::cout << "weighted fit: " << b << ',' << a << '\n';
-    std::cout << "removed: " << n-e.get_hit_number() << " hits\n";
-    std::cout << "===================" << '\n';
-     
 }
 
+void drift_time_calculation(event& e)
+{
+    int n = e.get_hit_number();
+    double speed = 0.0;
 
+    for (int i=0; i<n; ++i)
+    {
+        speed += short_res(e.fit_intercept,e.fit_gradient,e[i][1],e[i][2])/e[i][3];
+    }
+    e.drift_velocity = speed/n;
+}
 
+void hit_finder(event& e)
+{
+    int n = e.get_hit_number();
+    for (int i=0; i<n;++i)
+    {
+        double x = e[i][1];
+        double y = e[i][2];
+        double r = e[i][3] * e.drift_velocity;
+
+        
+        
+        double m = -1/e.fit_gradient;
+        double c = -m*x+ y;
+
+        double A = (1+m*m);
+        double B = 2*(m*c-m*y - x);
+        double C = (y*y - r*r + x*x - 2*c*y + c*c);
+
+        double x_plus = (-B+std::sqrt(B*B - 4*A*C))/(2*A);
+        double x_minus = (-B-std::sqrt(B*B - 4*A*C))/(2*A);
+
+        double y_plus = m*x_plus + c;
+        double y_minus = m*x_minus + c;
+
+        if (short_res(e.fit_intercept,e.fit_gradient,x_plus,y_plus) < short_res(e.fit_intercept,e.fit_gradient,x_minus,y_minus)){
+            e[i].set_hit_pos(x_plus,y_plus);
+        }
+        else{
+            e[i].set_hit_pos(x_minus,y_minus);
+        }
+
+    }
+}
+
+event calculation(event& E){
+    least_squares(E);
+    weighted_least_squares(E,inverse_weight,false);
+    drift_time_calculation(E);
+
+    for (int i=0; i< 1; ++i){
+        //std::cout << "Iteration no: " << i << '\n';
+        hit_finder(E);
+        weighted_least_squares(E,weight,true);
+        drift_time_calculation(E);
+        //E.quick_print();
+        //std::cout << "====================" << '\n';
+        }
+
+    return E;
+}
 
 int main(){
-    auto start = std::chrono::high_resolution_clock::now();  
-    for (int k=0; k<1; ++k){
+    auto start = std::chrono::high_resolution_clock::now(); 
+    for (int k=0; k<1000000; ++k){
         event E(k);
         E.read_event();
-        E.print();
-        //least_squares(E);
-        //weighted_least_squares(E);
+        E = calculation(E);
+        //std::cout << "Event: " << k <<" Velocity: " << E.drift_velocity << " Gradient: " << E.fit_gradient << '\n';
+        
     }
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = finish - start;
