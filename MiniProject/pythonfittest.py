@@ -166,9 +166,9 @@ print("gradient: " ,w_b_own)
 
 mean_speed = drift_time(w_a_own,w_b_own,x,y,r)
 
-plot(x,y,r*mean_speed)
 
-for i in range(10):
+
+for i in range(3):
     hit_x,hit_y = hit_finder(x,y,r,w_b_own,w_a_own,mean_speed)
 
     dt_a_own,dt_b_own = drift_time_fit(hit_x,hit_y,r)
@@ -180,6 +180,8 @@ for i in range(10):
     mean_speed = drift_time(dt_a_own,dt_b_own,x,y,r)
 
 
+
+plot(x,y,r*mean_speed)
     
 X_1 = np.linspace(-1,9,10)
 Y_1 = f(X_1,a_own,b_own)
@@ -189,11 +191,14 @@ Y_2 = f(X_2,w_a_own,w_b_own)
 
 X_3 = np.linspace(-1,9,10)
 Y_3 = f(X_3,dt_a_own,dt_b_own)
-
-
-#plt.plot(X_1,Y_1)
-#plt.plot(X_2,Y_2)
 plt.plot(X_3,Y_3)
+
+
+
+
+plt.plot(X_1,Y_1)
+plt.plot(X_2,Y_2)
+
 
 
 plt.xlim(-1,9)

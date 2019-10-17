@@ -99,22 +99,15 @@ std::vector<double> reading(int start)
         val = ((val << 8) | buffer[0] & 0xff);
         delete buffer;
 
-        double x_pos = (bitextractor(val,3,0));
-            
-        double Y_adjusted = bitextractor(val,3,3);
-        return_values[0] = start;
-        return_values[1] = x_pos;
 
-        if (std::fmod(x_pos,2) != 0) {
-            Y_adjusted += 0.5;
-        }
-        return_values[2] = Y_adjusted;
-        return_values[3] = bitextractor(val,10,6);
 
     is.close();
     }
     return return_values;
 }
+
+
+
 
 
 class event{
@@ -138,6 +131,10 @@ class event{
             return event_hits[index];
         } 
 
+        void update_event_id (int n){
+            event_id = n;
+        }
+
         void update_fit(double I, double G){
             fit_intercept = I;
             fit_gradient = G;
@@ -153,7 +150,7 @@ class event{
         }
 
 
-        event& read_event();
+        event& read_hit(hit&);
 
         void remove_hit(int index){
             event_hits.erase(event_hits.begin() + index);
@@ -164,15 +161,11 @@ class event{
 };
 
 
-event& event::read_event(){
-    for (int i=0; i<8; ++i){
-        std::vector<double> reading_vals = reading(i+event_id*8);
-        hit h1(reading_vals[0],reading_vals[1],reading_vals[2],reading_vals[3]);
-        event_hits.push_back(h1);
+event& event::read_hit(hit& h1){
+    event_hits.push_back(h1);
+    return *this;
     }
 
-    return *this;
-}
 
 void event::print(){
     std::cout << "Event_id: " << event_id << '\n';
@@ -187,6 +180,51 @@ void event::quick_print(){
     std::cout << "Event fit: " << fit_gradient << '\n';
     std::cout << "Event drift velocity: " << drift_velocity << '\n';
     }
+
+
+
+std::vector<event> reading(int start, int buffer_size)
+{
+    std::ifstream is (s,std::ios::binary);
+    std::vector<event> event_buffer(buffer_size);
+    if (is){
+        
+
+        is.seekg (start*16*buffer_size);
+        char* buffer = new char[16*buffer_size];
+        is.read(buffer,16*buffer_size);
+
+        for (int j=0;j<buffer_size;++j)
+        {
+            
+
+            for (int i=0;i<8;++i)
+            {
+                short val;
+                val = buffer[j*16+i*2+1];
+                val = ((val << 8) | buffer[j*16+i*2] & 0xff);
+
+                double x_pos = (bitextractor(val,3,0));
+                
+                double Y_adjusted = bitextractor(val,3,3);
+
+    
+                if (std::fmod(x_pos,2) != 0) {
+                    Y_adjusted += 0.5;
+                }
+                //std::cout << (start+1)*buffer_size+j*8+i << '\n';
+                hit h1(start*buffer_size*8+j*8+i,x_pos,Y_adjusted,bitextractor(val,10,6));
+                event_buffer[j].read_hit(h1);
+                event_buffer[j].update_event_id(start*buffer_size+j);
+
+            }
+        }
+        delete buffer;
+    }
+    return event_buffer;
+}
+
+
 
 
 double short_res(double I,double G,double X, double Y){
@@ -287,8 +325,6 @@ void hit_finder(event& e)
         double y = e[i][2];
         double r = e[i][3] * e.drift_velocity;
 
-        
-        
         double m = -1/e.fit_gradient;
         double c = -m*x+ y;
 
@@ -317,7 +353,7 @@ event calculation(event& E){
     weighted_least_squares(E,inverse_weight,false);
     drift_time_calculation(E);
 
-    for (int i=0; i< 1; ++i){
+    for (int i=0; i< 10; ++i){
         //std::cout << "Iteration no: " << i << '\n';
         hit_finder(E);
         weighted_least_squares(E,weight,true);
@@ -331,13 +367,16 @@ event calculation(event& E){
 
 int main(){
     auto start = std::chrono::high_resolution_clock::now(); 
-    for (int k=0; k<10; ++k){
-        event E(k);
-        E.read_event();
-        E.print();
-        E = calculation(E);
-        std::cout << "Event: " << k <<" Velocity: " << E.drift_velocity << " Gradient: " << E.fit_gradient << '\n';
-        
+    int total_event_no = 1000000;
+    int buffer_size = 10000;
+    for (int k=0; k<total_event_no/buffer_size; ++k){
+        std::vector<event> event_buffer = reading(k,buffer_size);
+        for (event E:event_buffer)
+        {
+            //E.print();
+            E = calculation(E);
+            //std::cout << "Event: " << k <<" Velocity: " << E.drift_velocity << " Gradient: " << E.fit_gradient << '\n';
+        }
     }
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = finish - start;
