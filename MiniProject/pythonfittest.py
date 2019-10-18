@@ -78,7 +78,7 @@ def drift_time(a,b,x,y,r):
     res = np.zeros(8)
     for i in range(len(x)):
         res[i] = (short_res(a,b,x[i],y[i]))
-        speed[i] = res[i]/r[i]
+        speed[i] = res[i]/(r[i]+5)
 
     mean_speed = (np.mean(speed))
     
@@ -181,23 +181,23 @@ for i in range(3):
 
 
 
-plot(x,y,r*mean_speed)
+plot(x,y,r*0.00223869)
     
-X_1 = np.linspace(-1,9,10)
-Y_1 = f(X_1,a_own,b_own)
+#X_1 = np.linspace(-1,9,10)
+#Y_1 = f(X_1,a_own,b_own)
 
-X_2 = np.linspace(-1,9,10)
-Y_2 = f(X_2,w_a_own,w_b_own)
+#X_2 = np.linspace(-1,9,10)
+#Y_2 = f(X_2,w_a_own,w_b_own)
 
 X_3 = np.linspace(-1,9,10)
-Y_3 = f(X_3,dt_a_own,dt_b_own)
+Y_3 = f(X_3,dt_a_own,0.0866269)
 plt.plot(X_3,Y_3)
 
 
 
 
-plt.plot(X_1,Y_1)
-plt.plot(X_2,Y_2)
+#plt.plot(X_,Y_1)
+#plt.plot(X_2,Y_2)
 
 
 
