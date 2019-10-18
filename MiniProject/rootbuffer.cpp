@@ -4,8 +4,7 @@
 #include <cmath>
 #include <vector>
 #include <chrono>
-#include "root/ROOT/RConfig.hxx"
-#include "root/TFile.h"
+#include "TFile.h"
 
 
 const std::string s = "manytracks.raw";
@@ -457,7 +456,7 @@ event calculation(event& E){
 
 int main(){
 
-    Tfile *f = new TFile("miniproject.root","recreate","Mini Project File");
+    TFile *f = new TFile("miniproject.root","recreate","Mini Project File");
     TH1F *h1 = new TH1F("h1","Drift Velocity",100,0.0015,0.003);
     TH1F *h2 = new TH1F("h2","Fit Gradient",100,-0.25,0.5);
 

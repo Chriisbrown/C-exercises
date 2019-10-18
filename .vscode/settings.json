@@ -55,7 +55,8 @@
         "stdexcept": "cpp",
         "streambuf": "cpp",
         "thread": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "rootintro.C": "cpp"
     },
     "python.pythonPath": "/home/cb719/anaconda3/bin/python"
 }
