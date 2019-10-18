@@ -282,8 +282,6 @@ void weighted_least_squares(event& e, double (*f)(double), bool hit)
     double Y_mean = 0.0;
     double W_mean = 0.0;
     double denominator = 0.0;
-    
-
 
     for (int i=0; i<n; ++i){
 
@@ -301,7 +299,6 @@ void weighted_least_squares(event& e, double (*f)(double), bool hit)
 
     double gradient = numerator/denominator;
     double intercept = Y_mean - gradient*X_mean;
-
 
     e.update_fit(intercept,gradient);
 
@@ -325,7 +322,6 @@ void error_least_squares(event& e)
     double denominator = 0.0;
     double error = 1/((0.5*e.drift_velocity)*(0.5*e.drift_velocity));
 
-
     for (int i=0; i<n; ++i){
 
         X_mean += error*e[i][4];
@@ -333,17 +329,13 @@ void error_least_squares(event& e)
         W_mean += error;
     }
 
-
     X_mean = X_mean/W_mean;
     Y_mean = Y_mean/W_mean;
-
-    
 
     for (int i=0; i<n; ++i){
         numerator += error*(e[i][4]-X_mean)*(e[i][5]-Y_mean);
         denominator += error*(e[i][4]-X_mean)*(e[i][4]-X_mean);
     }
-
 
     double gradient = numerator/denominator;
     double intercept = Y_mean - gradient*X_mean;
@@ -352,12 +344,10 @@ void error_least_squares(event& e)
 
     for (int i=0; i<n; ++i){
         double res = short_res(intercept,gradient,e[i][4],e[i][5]);
-        //std::cout << i << ',' << res << '\n';
         if (res > 0.3){
             e.remove_hit(i);
         }
     }
-    
 }
 
 void drift_time_calculation(event& e)
@@ -368,7 +358,7 @@ void drift_time_calculation(event& e)
 
     for (int i=0; i<n; ++i)
     {
-        if (e[i][3] == 0) {}
+        if (e[i][3] == 0) {mean_n-=1;}
         else{
             speed += short_res(e.fit_intercept,e.fit_gradient,e[i][1],e[i][2])/(e[i][3]);
         }
@@ -392,7 +382,6 @@ void hit_finder(event& e)
 
         else
         {
-
             double m = -1/e.fit_gradient;
             double c = -m*x+ y;
 
@@ -433,40 +422,33 @@ event calculation(event& E){
     double ratio = 1.0;
     int iteration_number = 0;
 
-    
-
-
-
-
     while (!E.good_fit){
-        //std::cout << "Iteration no: " << iteration_number << '\n';
         drift_v_new = E.fit_gradient;
+
         hit_finder(E);
         error_least_squares(E);
-        //weighted_least_squares(E,weight,true);
         drift_time_calculation(E);
-        //E.quick_print();
+
         drift_v_old = E.fit_gradient;
         ratio = drift_v_old - drift_v_new;
 
-        if (E.get_hit_number() < 3 | iteration_number >= 30){
-            //std::cout << E.get_hit_number() << '\n';
+        if (E.get_hit_number() < 4 | iteration_number >= 30)
+        {
             break;
         }
 
-        else if (std::fabs(ratio) < 0.00001){
+        else if (std::fabs(ratio) < 0.00001)
+        {
             E.good_fit = true;
             break;
         }
-        else{
-        //std::cout << ratio << '\n';
-            //std::cout << "====================" << '\n';
+
+        else
+        {
             ++iteration_number;
         }
-        }
 
-    
-        
+    } 
     return E;
 }
 
@@ -486,16 +468,14 @@ int main(){
         for (event E:event_buffer)
         {
             myfile.open("test.txt", std::ios_base::app);
-            //E.print();
             E = calculation(E);
-            //std::cout << "Event: " << k <<" Velocity: " << E.drift_velocity << " Gradient: " << E.fit_gradient << '\n';
             if (E.good_fit)
                 myfile << E.drift_velocity << "," << std::atan(E.fit_gradient) << '\n';
                 myfile.close();
+            
         }
         
     }
-    
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = finish - start;
     std::cout << "Elapsed time: " << elapsed.count() << " s\n";
