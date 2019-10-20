@@ -270,7 +270,7 @@ double no_weight(double r){
 void weighted_least_squares(event& e, double (*f)(double), bool hit)
 {
     int shift = 0;
-    double tolerance = 1;
+    double tolerance = 0.6;
     if (hit){ 
         shift = 3;
         tolerance = 0.3;
@@ -353,15 +353,13 @@ void error_least_squares(event& e)
 void drift_time_calculation(event& e)
 {
     int n = e.get_hit_number();
-    int mean_n = n;
+    double mean_n = 0.0;
     double speed = 0.0;
 
     for (int i=0; i<n; ++i)
     {
-        if (e[i][3] == 0) {mean_n-=1;}
-        else{
-            speed += short_res(e.fit_intercept,e.fit_gradient,e[i][1],e[i][2])/(e[i][3]);
-        }
+        speed += short_res(e.fit_intercept,e.fit_gradient,e[i][1],e[i][2]);
+        mean_n += e[i][3];
     }
     e.drift_velocity = speed/mean_n;
 }
@@ -432,12 +430,12 @@ event calculation(event& E){
         drift_v_old = E.fit_gradient;
         ratio = drift_v_old - drift_v_new;
 
-        if (E.get_hit_number() < 4 | iteration_number >= 30)
+        if (E.get_hit_number() < 4 | iteration_number >= 10)
         {
             break;
         }
 
-        else if (std::fabs(ratio) < 0.00001)
+        else if (std::fabs(ratio) < 0.000001)
         {
             E.good_fit = true;
             break;
@@ -455,8 +453,8 @@ event calculation(event& E){
 int main(){
     auto start = std::chrono::high_resolution_clock::now(); 
     int event_start = 0;
-    int total_event_no = 1000000;
-    int buffer_size = 10000;
+    int total_event_no = 10;
+    int buffer_size = 1;
     std::ofstream myfile;
     myfile.open ("test.txt");
     myfile.close();

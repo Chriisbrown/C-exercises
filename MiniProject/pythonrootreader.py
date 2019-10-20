@@ -20,9 +20,9 @@ def staff():
 
     fname = "test.txt"
 
-    hdv = TH1F("hdv", "Drift Velocity Distribution", 100, 0.0026, 0.0029)
+    hdv = TH1F("hdv", "Drift Velocity Distribution", 100, 0.002615, 0.002645)
     hfg = TH1F("hfg", "Track Angle Distribution", 100, 0, 0.3)
-    hprof = TProfile("hprof", "Profile of Drift Velocity vs Track Angle", 100, 0.0026,0.0029,0,0.3)
+    hprof = TProfile("hprof", "Profile of Drift Velocity vs Track Angle", 100, 0.002615,0.002645,0,0.3)
 
     histos = [ 'hdv', 'hfg', 'hprof']
     for name in histos:
