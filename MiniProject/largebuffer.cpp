@@ -459,7 +459,6 @@ int main(){
     int buffer_size = 10000;
     std::ofstream myfile;
     myfile.open ("test.txt");
-    myfile << "drift_velocity" << "," << "fit_gradient" << '\n';
     myfile.close();
 
     
