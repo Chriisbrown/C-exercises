@@ -1,15 +1,11 @@
-#include <fstream>
-#include <bitset>
-#include <cmath>
-#include <vector>
 #include <chrono>
+#include <fstream>
+#include <cmath>
 #include "hit.hpp"
-#include "event.cpp"
+#include "event.hpp"
 
-const std::string s = "manytracks.raw";
-
-
-
+#include "TFile.h"
+#include "TH1F.h"
 
 
 double bitextractor(short buf, int length, int position) 
@@ -17,17 +13,16 @@ double bitextractor(short buf, int length, int position)
     return static_cast<double>(((1 << length) - 1) & (buf >> (position))); 
 }
 
-
-std::vector<event> reading(int start, int buffer_size)
+std::vector<event> reading(std::string s,int start, int buffer_size)
 {
     std::ifstream is (s,std::ios::binary);
     std::vector<event> event_buffer(buffer_size);
-    if (is){
-        
 
+    if (is){
         is.seekg (start*16*buffer_size);
         char* buffer = new char[16*buffer_size];
         is.read(buffer,16*buffer_size);
+
 
         for (int j=0;j<buffer_size;++j)
         {
@@ -43,11 +38,9 @@ std::vector<event> reading(int start, int buffer_size)
                 
                 double Y_adjusted = bitextractor(val,3,3);
 
-    
                 if (std::fmod(x_pos,2) != 0) {
                     Y_adjusted += 0.5;
                 }
-                //std::cout << (start+1)*buffer_size+j*8+i << '\n';
                 hit h1(start*buffer_size*8+j*8+i,x_pos,Y_adjusted,bitextractor(val,10,6));
                 event_buffer[j].read_hit(h1);
                 event_buffer[j].update_event_id(start*buffer_size+j);
@@ -59,50 +52,13 @@ std::vector<event> reading(int start, int buffer_size)
     return event_buffer;
 }
 
-double short_res(double I,double G,double X, double Y){
-    return std::fabs((-G*X + Y - I)/std::sqrt(G*G + 1));
-}
+double short_res(double I,double G,double X, double Y){ return std::fabs((-G*X + Y - I)/std::sqrt(G*G + 1));}
 
-void least_squares(event& e)
-{
-    int n = e.get_hit_number();
-    double product = 0.0;
-    double X_mean = 0.0;
-    double Y_mean = 0.0;
-    double X_squared_mean = 0.0;
+double inverse_weight(double r){ return (1000.0/(r*r + 25));}
 
-    for (int i=0; i<n; ++i){
-        product += e[i][1]*e[i][2];
-        X_mean += e[i][1];
-        Y_mean += e[i][2];
-        X_squared_mean += e[i][1]*e[i][1];
-    }
+double weight(double r){ return (r*r/1000.0); }
 
-    double gradient = ((product/n) - (X_mean/n)*(Y_mean/n))/((X_squared_mean/n)-((X_mean*X_mean)/(n*n)));
-    double intercept = Y_mean/n - gradient*X_mean/n;
-
-    for (int i=0; i<n; ++i){
-        double res = short_res(intercept,gradient,e[i][1],e[i][2]);
-        std::cout << res << '\n';
-        if (res > 0.3){
-            e.remove_hit(i);
-        }
-    }
-
-    e.update_fit(intercept,gradient);    
-}
-
-double inverse_weight(double r){
-    return (1000.0/(r*r + 25));
-}
-
-double weight(double r){
-    return (r*r/1000.0);
-}
-
-double no_weight(double r){
-    return r;
-}
+double no_weight(double r){ return r; }
 
 void weighted_least_squares(event& e, double (*f)(double), bool hit)
 {
@@ -119,6 +75,7 @@ void weighted_least_squares(event& e, double (*f)(double), bool hit)
     double Y_mean = 0.0;
     double W_mean = 0.0;
     double denominator = 0.0;
+    double error = 0.0;
 
     for (int i=0; i<n; ++i){
 
@@ -137,7 +94,7 @@ void weighted_least_squares(event& e, double (*f)(double), bool hit)
     double gradient = numerator/denominator;
     double intercept = Y_mean - gradient*X_mean;
 
-    e.update_fit(intercept,gradient);
+    e.update_fit(intercept,gradient,error);
 
     for (int i=0; i<n; ++i){
         
@@ -177,7 +134,18 @@ void error_least_squares(event& e)
     double gradient = numerator/denominator;
     double intercept = Y_mean - gradient*X_mean;
 
-    e.update_fit(intercept,gradient);
+    double X_var = 0.0;
+    double Y_var = 0.0;
+
+
+    for (int i=0; i<n; ++i){
+        X_var += (e[i][4] - X_mean)*(e[i][4] - X_mean);
+        Y_var += (e[i][5] - e[i][4]*gradient - intercept )*(e[i][5] - e[i][4]*gradient - intercept);
+    }
+
+    double Standard_Error = std::sqrt((Y_var/(n-2))/X_var);
+
+    e.update_fit(intercept,gradient,Standard_Error);
 
     for (int i=0; i<n; ++i){
         double res = short_res(intercept,gradient,e[i][4],e[i][5]);
@@ -190,17 +158,16 @@ void error_least_squares(event& e)
 void drift_time_calculation(event& e)
 {
     int n = e.get_hit_number();
-    int mean_n = n;
+    int mean_n = 0.0;
     double speed = 0.0;
 
     for (int i=0; i<n; ++i)
     {
-        if (e[i][3] == 0) {mean_n-=1;}
-        else{
-            speed += short_res(e.fit_intercept,e.fit_gradient,e[i][1],e[i][2])/(e[i][3]);
-        }
+        speed += short_res(e.fit_intercept,e.fit_gradient,e[i][1],e[i][2]);
+        mean_n += e[i][3];
     }
     e.drift_velocity = speed/mean_n;
+    e.drift_error = (0.5/mean_n)*e.drift_velocity;
 }
 
 void hit_finder(event& e)
@@ -244,7 +211,8 @@ void hit_finder(event& e)
     }
 }
 
-event calculation(event& E){
+event calculation(event& E)
+{
 
     weighted_least_squares(E,no_weight,false);
     weighted_least_squares(E,inverse_weight,false);
@@ -269,7 +237,7 @@ event calculation(event& E){
         drift_v_old = E.fit_gradient;
         ratio = drift_v_old - drift_v_new;
 
-        if (E.get_hit_number() < 4 | iteration_number >= 30)
+        if (E.get_hit_number() < 4 | iteration_number >= 10)
         {
             break;
         }
@@ -289,30 +257,43 @@ event calculation(event& E){
     return E;
 }
 
+
 int main(){
-    auto start = std::chrono::high_resolution_clock::now(); 
+
+    std::string filename = "manytracks.raw";
     int event_start = 0;
     int total_event_no = 1000000;
-    int buffer_size = 10000;
-    std::ofstream myfile;
-    myfile.open ("test.txt");
-    myfile << "drift_velocity" << "," << "fit_gradient" << '\n';
-    myfile.close();
-
+    int buffer_size = 100000;
     
+
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+
+    TFile *f = new TFile("miniproject.root","recreate","Mini Project File");
+    TH1F *h1 = new TH1F("h1","Drift Velocity",100, 0.002615, 0.002645);
+    TH1F *h2 = new TH1F("h2","Fit Gradient",100,0,0.3); 
+
+    double fit_error = 0.0;
+
     for (int k=event_start; k<event_start+total_event_no/buffer_size; ++k){
-        std::vector<event> event_buffer = reading(k,buffer_size);
+        std::vector<event> event_buffer = reading(filename,k,buffer_size);
         for (event E:event_buffer)
         {
-            myfile.open("test.txt", std::ios_base::app);
+            
             E = calculation(E);
             if (E.good_fit)
-                myfile << E.drift_velocity << "," << std::atan(E.fit_gradient) << '\n';
-                myfile.close();
-            
-        }
-        
+                {
+                    h1->Fill(E.drift_velocity,100*E.drift_error/E.drift_velocity);
+                    h2->Fill(std::atan(E.fit_gradient),100*(E.fit_error / (1+E.fit_gradient*E.fit_gradient))/( std::atan(E.fit_gradient)));
+                }
+        }    
     }
+
+    
+    f->Write();
+    f->Close();
+
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = finish - start;
     std::cout << "Elapsed time: " << elapsed.count() << " s\n";

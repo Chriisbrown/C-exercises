@@ -24,9 +24,12 @@ void event::quick_print()
 }
 
 
-void event::update_fit(double& I, double& G)
+void event::update_fit(double& I, double& G, double& E)
 {
     fit_intercept = I;
     fit_gradient = G;
+    fit_error = E;
     
 }
+
+

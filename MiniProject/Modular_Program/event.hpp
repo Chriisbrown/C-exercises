@@ -15,6 +15,8 @@ class event{
         double fit_gradient;
         double fit_intercept; 
         double drift_velocity;
+        double drift_error;
+        double fit_error;
 
         event() : event_id{0} {};
         event(int n) : event_id{n} {};
@@ -27,7 +29,7 @@ class event{
 
         void update_event_id (int n){ event_id = n; }
 
-        void update_fit(double&, double&);
+        void update_fit(double&, double&, double&);
 
         void update_velocity(double V) { drift_velocity = V; }
 
