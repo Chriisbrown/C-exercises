@@ -25,8 +25,8 @@ int main(){
             E = calculation(E);
             if (E.good_fit)
                 {
-                    h1->Fill(E.drift_velocity,100*E.drift_error/E.drift_velocity);
-                    h2->Fill(std::atan(E.fit_gradient),100*(E.fit_error / (1+E.fit_gradient*E.fit_gradient))/( std::atan(E.fit_gradient)));
+                    h1->Fill(E.get_velocity(),100*E.get_velocity_error()/E.get_velocity());
+                    h2->Fill(std::atan(E.get_fit_gradient()),100*(E.get_fit_error() / (1+E.get_fit_gradient()*E.get_fit_gradient()))/( std::atan(E.get_fit_gradient())));
                 }
         }    
     }

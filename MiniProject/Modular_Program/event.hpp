@@ -9,14 +9,19 @@ class event{
         int event_id;
         std::vector<hit> event_hits;
 
+        double drift_velocity;
+        double fit_gradient;
+        double fit_intercept; 
+        double fit_error;
+        double drift_error;
+
     public:
         bool good_fit = false;
 
-        double fit_gradient;
-        double fit_intercept; 
-        double drift_velocity;
-        double drift_error;
-        double fit_error;
+        
+        
+        
+        
 
         event() : event_id{0} {};
         event(int n) : event_id{n} {};
@@ -30,8 +35,15 @@ class event{
         void update_event_id (int n){ event_id = n; }
 
         void update_fit(double&, double&, double&);
+        double get_fit_gradient() {return fit_gradient;}
+        double get_fit_intercept() {return fit_intercept;}
+        double get_fit_error() {return fit_error;}
+        
+        
 
-        void update_velocity(double V) { drift_velocity = V; }
+        void update_velocity(double V, double E) { drift_velocity = V; drift_error = E; }
+        double get_velocity() { return drift_velocity; }
+        double get_velocity_error() {return drift_error;}
 
         hit& return_hit(int index){ return event_hits[index]; }
 

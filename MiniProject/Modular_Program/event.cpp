@@ -19,8 +19,8 @@ void event::quick_print()
 {
     std::cout << "Event id: " << event_id << '\n';
     std::cout << "Hit number: " << get_hit_number() << '\n';
-    std::cout << "Event fit: " << fit_gradient << '\n';
-    std::cout << "Event drift velocity: " << drift_velocity << '\n';
+    std::cout << "Event fit: " << fit_gradient << " +/- " << fit_error << '\n';
+    std::cout << "Event drift velocity: " << drift_velocity << " +/- " << drift_error << '\n';
 }
 
 

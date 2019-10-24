@@ -114,7 +114,7 @@ void error_least_squares(event& e)
     double Y_mean = 0.0;
     double W_mean = 0.0;
     double denominator = 0.0;
-    double error = 1/((0.5*e.drift_velocity)*(0.5*e.drift_velocity));
+    double error = 1/((0.5*e.get_velocity())*(0.5*e.get_velocity()));
 
     for (int i=0; i<n; ++i){
 
@@ -160,14 +160,16 @@ void drift_time_calculation(event& e)
     int n = e.get_hit_number();
     int mean_n = 0.0;
     double speed = 0.0;
+    //double velocity = 0.0;
 
     for (int i=0; i<n; ++i)
     {
-        speed += short_res(e.fit_intercept,e.fit_gradient,e[i][1],e[i][2]);
+        //velocity += short_res(e.get_fit_intercept(),e.get_fit_gradient(),e[i][1],e[i][2])/e[i][3];
+        speed += short_res(e.get_fit_intercept(),e.get_fit_gradient(),e[i][1],e[i][2]);
         mean_n += e[i][3];
     }
-    e.drift_velocity = speed/mean_n/n;
-    e.drift_error = (0.5/mean_n)*e.drift_velocity;
+    //e.update_velocity(velocity/(n*n),(0.0001*(velocity/(n*n))));
+    e.update_velocity(speed/mean_n,(0.5/mean_n)*(speed/mean_n));
 }
 
 void hit_finder(event& e)
@@ -177,7 +179,7 @@ void hit_finder(event& e)
     {
         double x = e[i][1];
         double y = e[i][2];
-        double r = e[i][3] * e.drift_velocity;
+        double r = e[i][3] * e.get_velocity();
 
         if (e[i][3] == 0)
         {
@@ -186,7 +188,7 @@ void hit_finder(event& e)
 
         else
         {
-            double m = -1/e.fit_gradient;
+            double m = -1/e.get_fit_gradient();
             double c = -m*x+ y;
 
             double A = (1+m*m);
@@ -199,7 +201,7 @@ void hit_finder(event& e)
             double y_plus = m*x_plus + c;
             double y_minus = m*x_minus + c;
 
-            if (short_res(e.fit_intercept,e.fit_gradient,x_plus,y_plus) < short_res(e.fit_intercept,e.fit_gradient,x_minus,y_minus)){
+            if (short_res(e.get_fit_intercept(),e.get_fit_gradient(),x_plus,y_plus) < short_res(e.get_fit_intercept(),e.get_fit_gradient(),x_minus,y_minus)){
                 e[i].set_hit_pos(x_plus,y_plus);
             }
             else{
@@ -228,13 +230,13 @@ event calculation(event& E)
     int iteration_number = 0;
 
     while (!E.good_fit){
-        drift_v_new = E.fit_gradient;
+        drift_v_new = E.get_fit_gradient();
 
         hit_finder(E);
         error_least_squares(E);
         drift_time_calculation(E);
 
-        drift_v_old = E.fit_gradient;
+        drift_v_old = E.get_fit_gradient();
         ratio = drift_v_old - drift_v_new;
 
         if (E.get_hit_number() < 4 | iteration_number >= 10)
