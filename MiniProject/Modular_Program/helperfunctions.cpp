@@ -1,4 +1,3 @@
-#include <chrono>
 #include <fstream>
 #include <cmath>
 #include "hit.hpp"
@@ -7,6 +6,22 @@
 #ifndef FUNC_H
 #define FUNC_H
 
+struct fitting_parameters
+{
+
+    double timing_error = 0.005;
+    double initial_tolerance = 1;
+    double hit_tolerance = 0.3;
+    double final_fit_tolerance = 0.00001;
+    int number_hits_tolerance = 4;
+    int iteration_cap = 10; 
+
+};
+
+template <typename T>
+T square(T t){
+    return t*t;
+}
 
 double bitextractor(short buf, int length, int position) 
 { 
@@ -23,7 +38,6 @@ std::vector<event> reading(std::string s,int start, int buffer_size)
         char* buffer = new char[16*buffer_size];
         is.read(buffer,16*buffer_size);
 
-
         for (int j=0;j<buffer_size;++j)
         {
             
@@ -38,9 +52,8 @@ std::vector<event> reading(std::string s,int start, int buffer_size)
                 
                 double Y_adjusted = bitextractor(val,3,3);
 
-                if (std::fmod(x_pos,2) != 0) {
-                    Y_adjusted += 0.5;
-                }
+                if (i%2 !=0) {Y_adjusted += 0.5;}
+
                 hit h1(start*buffer_size*8+j*8+i,x_pos,Y_adjusted,bitextractor(val,10,6));
                 event_buffer[j].read_hit(h1);
                 event_buffer[j].update_event_id(start*buffer_size+j);
@@ -48,6 +61,9 @@ std::vector<event> reading(std::string s,int start, int buffer_size)
             }
         }
         delete buffer;
+    }
+    else{
+        std::cout << "Reading Error" << '\n';
     }
     return event_buffer;
 }
@@ -60,13 +76,13 @@ double weight(double r){ return (r*r/1000.0); }
 
 double no_weight(double r){ return r; }
 
-void weighted_least_squares(event& e, double (*f)(double), bool hit)
+void weighted_least_squares(event& e, double (*f)(double), bool hit,fitting_parameters& fp)
 {
     int shift = 0;
-    double tolerance = 1;
+    double tolerance = fp.initial_tolerance;
     if (hit){ 
         shift = 3;
-        tolerance = 0.3;
+        tolerance = fp.hit_tolerance;
         }
     
     int n = e.get_hit_number();
@@ -88,7 +104,7 @@ void weighted_least_squares(event& e, double (*f)(double), bool hit)
 
     for (int i=0; i<n; ++i){
         numerator += f(e[i][3])*(e[i][1+shift]-X_mean)*(e[i][2+shift]-Y_mean);
-        denominator += f(e[i][3])*(e[i][1+shift]-X_mean)*(e[i][1+shift]-X_mean);
+        denominator += f(e[i][3])*square(e[i][1+shift]-X_mean);
     }
 
     double gradient = numerator/denominator;
@@ -106,7 +122,7 @@ void weighted_least_squares(event& e, double (*f)(double), bool hit)
     
 }
 
-void error_least_squares(event& e)
+void error_least_squares(event& e, fitting_parameters& fp)
 {
     int n = e.get_hit_number();
     double numerator = 0.0;
@@ -114,21 +130,24 @@ void error_least_squares(event& e)
     double Y_mean = 0.0;
     double W_mean = 0.0;
     double denominator = 0.0;
-    double error = 1/((0.5*e.get_velocity())*(0.5*e.get_velocity()));
+    double d_error = 0.0;
+
+
 
     for (int i=0; i<n; ++i){
-
-        X_mean += error*e[i][4];
-        Y_mean += error*e[i][5];
-        W_mean += error;
+        d_error = 1/std::sqrt(square(e.get_velocity_error()/e.get_velocity()) + square(e[i][3]/fp.timing_error));
+        X_mean += d_error*e[i][4];
+        Y_mean += d_error*e[i][5];
+        W_mean += d_error;
     }
 
     X_mean = X_mean/W_mean;
     Y_mean = Y_mean/W_mean;
 
     for (int i=0; i<n; ++i){
-        numerator += error*(e[i][4]-X_mean)*(e[i][5]-Y_mean);
-        denominator += error*(e[i][4]-X_mean)*(e[i][4]-X_mean);
+        d_error = 1/std::sqrt(square(e.get_velocity_error()/e.get_velocity()) + square(e[i][3]/fp.timing_error));
+        numerator += d_error*(e[i][4]-X_mean)*(e[i][5]-Y_mean);
+        denominator += d_error*(e[i][4]-X_mean)*(e[i][4]-X_mean);
     }
 
     double gradient = numerator/denominator;
@@ -137,15 +156,15 @@ void error_least_squares(event& e)
     double X_var = 0.0;
     double Y_var = 0.0;
 
-
     for (int i=0; i<n; ++i){
-        X_var += (e[i][4] - X_mean)*(e[i][4] - X_mean);
-        Y_var += (e[i][5] - e[i][4]*gradient - intercept )*(e[i][5] - e[i][4]*gradient - intercept);
+        d_error = square(e.get_velocity_error()/e.get_velocity()) + square(e[i][3]/fp.timing_error);
+        X_var += d_error*(e[i][4] - X_mean)*(e[i][4] - X_mean);
     }
 
-    double Standard_Error = std::sqrt((Y_var/(n-2))/X_var);
+    double standard_Error = std::sqrt(1/X_var);
+    
 
-    e.update_fit(intercept,gradient,Standard_Error);
+    e.update_fit(intercept,gradient,standard_Error);
 
     for (int i=0; i<n; ++i){
         double res = short_res(intercept,gradient,e[i][4],e[i][5]);
@@ -155,21 +174,18 @@ void error_least_squares(event& e)
     }
 }
 
-void drift_time_calculation(event& e)
+void drift_time_calculation(event& e, fitting_parameters& fp)
 {
     int n = e.get_hit_number();
     int mean_n = 0.0;
     double speed = 0.0;
-    //double velocity = 0.0;
 
     for (int i=0; i<n; ++i)
     {
-        //velocity += short_res(e.get_fit_intercept(),e.get_fit_gradient(),e[i][1],e[i][2])/e[i][3];
         speed += short_res(e.get_fit_intercept(),e.get_fit_gradient(),e[i][1],e[i][2]);
         mean_n += e[i][3];
     }
-    //e.update_velocity(velocity/(n*n),(0.0001*(velocity/(n*n))));
-    e.update_velocity(speed/mean_n,(0.5/mean_n)*(speed/mean_n));
+    e.update_velocity(speed/mean_n,(fp.timing_error/mean_n)*(speed/mean_n));
 }
 
 void hit_finder(event& e)
@@ -207,46 +223,45 @@ void hit_finder(event& e)
             else{
                 e[i].set_hit_pos(x_minus,y_minus);
             }
-
         }
-
     }
 }
 
-event calculation(event& E)
+event calculation(event& E, fitting_parameters& fp)
 {
 
-    weighted_least_squares(E,no_weight,false);
-    weighted_least_squares(E,inverse_weight,false);
-    drift_time_calculation(E);
+    weighted_least_squares(E,no_weight,false,fp);
+
+    weighted_least_squares(E,inverse_weight,false,fp);
+    drift_time_calculation(E,fp);
 
     hit_finder(E);
-    weighted_least_squares(E,weight,true);
-    drift_time_calculation(E);
+    weighted_least_squares(E,weight,true,fp);
+    drift_time_calculation(E,fp);
 
     double drift_v_new = 0.0;
     double drift_v_old = 0.0;
     double ratio = 1.0;
     int iteration_number = 0;
 
-    while (!E.good_fit){
+    while (!E.check_fit_status()){
         drift_v_new = E.get_fit_gradient();
 
         hit_finder(E);
-        error_least_squares(E);
-        drift_time_calculation(E);
+        error_least_squares(E,fp);
+        drift_time_calculation(E,fp);
 
         drift_v_old = E.get_fit_gradient();
         ratio = drift_v_old - drift_v_new;
 
-        if (E.get_hit_number() < 4 | iteration_number >= 10)
+        if (E.get_hit_number() < fp.number_hits_tolerance | iteration_number >= fp.iteration_cap)
         {
             break;
         }
 
-        else if (std::fabs(ratio) < 0.00001)
+        else if (std::fabs(ratio) < fp.final_fit_tolerance)
         {
-            E.good_fit = true;
+            E.update_fit_status(true);
             break;
         }
 
@@ -254,7 +269,6 @@ event calculation(event& E)
         {
             ++iteration_number;
         }
-
     } 
     return E;
 }

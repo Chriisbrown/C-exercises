@@ -1,21 +1,23 @@
 #include "TFile.h"
-#include "TH1F.h"
+#include "TNtuple.h"
+#include <chrono>
 #include "helperfunctions.cpp"
 
 class range_error{};
 class value_error{};
 
 int main(){
-    
 
+    fitting_parameters fp;
+    
     char g = ' ';
     std::string filename = "";
     int event_start = 0;
     int total_event_no = 1;
     int buffer_size = 1;
 
-    std::cout << "Enter 'o' for one track analysis and printing '\n'" << "Enter 'm' for many track analysis and printing to root histograms '\n'" <<
-                      "Enter 's' for single track analysis and printing '\n'" <<  "Enter 'q' to quit: ";
+    std::cout << "Enter 'o' for one track analysis and printing \n" << "Enter 'm' for many track analysis and printing to a root NTuple \n" <<
+                      "Enter 's' for single track analysis and printing \n" <<  "Enter 'q' to quit: ";
 
     while(std::cin >> g)
     {
@@ -27,8 +29,8 @@ int main(){
             filename = "onetrack.raw"; 
             std::vector<event> event_buffer = reading(filename,0,1);
             event E;
-            E = calculation(event_buffer[0]);
-            if (E.good_fit)
+            E = calculation(event_buffer[0],fp);
+            if (E.check_fit_status())
             {
                 E.print();
                 E.quick_print();
@@ -45,22 +47,23 @@ int main(){
             
             auto start = std::chrono::high_resolution_clock::now();
 
-            TFile *f = new TFile("histograms.root","recreate","Drift Velocity and Track Angle Histograms");
+            TFile *f = new TFile("tracks.root","recreate","Drift Velocity and Track Angle Histograms");
+            TNtuple *ntuple = new TNtuple("ntuple","Drift Velocity and Track Angle Histograms","velocity:v_e:fit:f_e");
             
-            TH1F *h1 = new TH1F("h1","Drift Velocity",100, 0.002615, 0.002645);
-            TH1F *h2 = new TH1F("h2","Fit Gradient",100,0,0.3); 
-
+            
 
             for (int k=event_start; k<event_start+total_event_no/buffer_size; ++k){
                 std::vector<event> event_buffer = reading(filename,k,buffer_size);
                 for (event E:event_buffer)
                 {     
-                    E = calculation(E);
-                    if (E.good_fit)
+                    E = calculation(E,fp);
+                    if (E.check_fit_status())
                         {
-                            h1->Fill(E.get_velocity(),100*E.get_velocity_error()/E.get_velocity());
-                            h2->Fill(std::atan(E.get_fit_gradient()),100*(E.get_fit_error() / (1+E.get_fit_gradient()*E.get_fit_gradient()))/( std::atan(E.get_fit_gradient())));
+                            double m = square(1/(1+square(E.get_velocity()))) * square(E.get_fit_error()) * square(std::atan(E.get_fit_gradient()));
+                            ntuple->Fill(E.get_velocity(),E.get_velocity_error()/E.get_velocity(),std::atan(E.get_fit_gradient()),std::sqrt(m));
                         }
+                    else
+                        continue;
                 }    
             }
 
@@ -94,9 +97,9 @@ int main(){
                     std::vector<event> event_buffer = reading(filename,k,buffer_size);
                     for (event E:event_buffer)
                     {     
-                        E = calculation(E);
+                        E = calculation(E,fp);
                         
-                        if (E.good_fit)
+                        if (E.check_fit_status())
                             E.print();
                             E.quick_print();
                     }    
