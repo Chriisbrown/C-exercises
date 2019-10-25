@@ -50,12 +50,8 @@ int main(){
             TFile *f = new TFile("tracks.root","recreate","Drift Velocity and Track Angle Histograms");
             TNtuple *ntuple = new TNtuple("ntuple","Drift Velocity and Track Angle Histograms","velocity:v_e:fit:f_e");
             
-
-
             for (int k=event_start; k<event_start+total_event_no/buffer_size; ++k){
                 std::vector<event> event_buffer = reading(filename,k,buffer_size);
-
-                #pragma omp parallel for num_threads(8)
 
                 for (event E:event_buffer)
                 {     
@@ -63,7 +59,6 @@ int main(){
                     if (E.check_fit_status())
                         {
                             double m = square(1/(1+square(E.get_velocity()))) * square(E.get_fit_error()) * square(std::atan(E.get_fit_gradient()));
-                            #pragma omp critical
                             ntuple->Fill(E.get_velocity(),E.get_velocity_error()/E.get_velocity(),std::atan(E.get_fit_gradient()),std::sqrt(m));
                         }
                     else
@@ -116,9 +111,11 @@ int main(){
             }
             catch (range_error){
                 std::cout << "Out of Range " << std::endl;
+                break;
             }
             catch (value_error){
                 std::cout << "Not an Integer " << std::endl;
+                break;
             }
 
             
