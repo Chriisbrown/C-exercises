@@ -1,6 +1,8 @@
 Readme for compling the track finder algorithm and associated classes
 
-run make in the desired directory. The ROOT libraries are needed as is a working g++ compiler
+C++11 is needed for this compilation.
+
+Run make in the desired directory. The ROOT libraries are needed as is a working g++ compiler
 Ensure both the onetrack.raw and manytracks.raw are in the desired directory
 
 This will compile to a executable called track_finder.exe
