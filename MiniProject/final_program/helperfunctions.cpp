@@ -16,7 +16,7 @@ struct fitting_parameters
     double timing_error = 0.5; //Error in the drift times
     double initial_tolerance = 1; //Tolerance for erranous hit points, if a hit is greater than this value away from the initial fit line it is removed
     double hit_tolerance = 0.3; //Second tolerance for erranous hit points, used for more accurate hit selection
-    double final_fit_tolerance = 0.000003; // Final tolerance, the veloicity must change by less than this value in fit iterations in order to be a good fit
+    double final_fit_tolerance = 0.000003; // Final tolerance, the velocity must change by less than this value in fit iterations in order to be a good fit
     int number_hits_tolerance = 4; //If an event has fewer than this value of hits, lost due to erranous hit points, it is deemed a bad fit and ignored
     int iteration_cap = 10; //Number of fit iterations allowed until the fitting terminates
 // This is a set of data entries that are used in the fitting in various ways, they are provided here to allow quick updates to
@@ -182,11 +182,12 @@ void weighted_least_squares(event& e, double (*f)(double), bool hit,fitting_para
 
 void error_least_squares(event& e, fitting_parameters& fp)
 {
-    // This is a second fitting function but instead of taking a weighting function it uses a weight based on the error on the parameters.
+    // This is a second fitting function but instead of taking a weighting function it calculates the error on the parameters.
     int n = e.get_hit_number();
     double numerator = 0.0;
     double X_mean = 0.0;
     double Y_mean = 0.0;
+    double W_mean = 0.0;
     double denominator = 0.0;
     double d_error = e.get_velocity()/e.get_velocity_error();
     /*
@@ -205,10 +206,11 @@ void error_least_squares(event& e, fitting_parameters& fp)
     {
         X_mean += e[i][4];
         Y_mean += e[i][5];
+        W_mean += 1.0;
     }
 
-    X_mean = X_mean/n;
-    Y_mean = Y_mean/n;
+    X_mean = X_mean/W_mean;
+    Y_mean = Y_mean/W_mean;
 
     for (int i=0; i<n; ++i)
     {
@@ -231,7 +233,6 @@ void error_least_squares(event& e, fitting_parameters& fp)
     
 
     e.update_fit(intercept,gradient,standard_Error);
-
 }
 
 void drift_time_calculation(event& e, fitting_parameters& fp)
@@ -272,18 +273,20 @@ void hit_finder(event& e)
 
         else
         {
+            double grad = e.get_fit_gradient();
+            double intercept = e.get_fit_intercept();
             double x = e[i][1];
             double y = e[i][2];
             double r = e[i][3] * e.get_velocity();
-            double d = short_res(e.get_fit_intercept(),e.get_fit_gradient(),x,y);
+            double d = short_res(intercept,grad,x,y);
 
-            double m = -1/e.get_fit_gradient();
+            double m = -1/grad;
             double c = -m*x+ y;
-            double x_intercept = (c - e.get_fit_intercept())/(e.get_fit_gradient() - m);
+            double x_intersect = (c - intercept)/(grad - m);
             
-            double y_intercept = m*x_intercept + c;
-            double x_new = ((x_intercept-x) * (r/d))+x;
-            double y_new = ((y_intercept-y) * (r/d))+y;
+            double y_intersect = m*x_intersect + c;
+            double x_new = ((x_intersect-x) * (r/d))+x;
+            double y_new = ((y_intersect-y) * (r/d))+y;
             e[i].set_hit_pos(x_new,y_new);
 
         }
