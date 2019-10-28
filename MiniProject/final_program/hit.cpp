@@ -43,7 +43,7 @@ void hit::set_hit_pos(double& x, double& y)
 
 std::ostream& operator<<(std::ostream& os, const hit& h)
 {
-    os << "Hit_id: " << h.id << " X:" << h.x_coordinate << " Y: " << h.y_coordinate << " Drift Time: " << h.drift_time << std::endl;
+    os << "Hit_id: " << h.id << '\t'  << " X: " << h.x_coordinate << " Y: " << h.y_coordinate << '\t' << " Drift Time: " << h.drift_time << std::endl;
     return os;
     //<< operator overload which simplifies printing function for the event class, instead of each variable needing to be printed
     // the overloaded function will print the entire hit data when the << call to print is used. Also allows the functionality for

@@ -21,7 +21,6 @@ void event::quick_print()
     std::cout << "Event id: " << event_id << std::endl;
     std::cout << "Hit number: " << get_hit_number() << std::endl;
     std::cout << "Event fit: " << fit_gradient << " +/- " << fit_error << std::endl;
-    std::cout << "Event intercept: " << fit_intercept << std::endl;
     std::cout << "Event drift velocity: " << drift_velocity*10e4 << " +/- " << drift_error*10e4 << " microns/ns" << std::endl;
 }
 //Printing of fit parameters used for single event analysis 
