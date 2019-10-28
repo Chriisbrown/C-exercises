@@ -16,9 +16,6 @@ fig = plt.figure()
 ax = fig.add_subplot(111,aspect='equal')
 
 
-
-
-
 drift_velocity = 250.453 /1e5
 
 

@@ -266,18 +266,13 @@ void hit_finder(event& e)
     /*
     Function for estimating the hit points where the electrons drifting to the wires originate. These points are better to fit to as they
     actually represent the physical points which the track went through
-    This function finds these hit points by first calcuting a line perpendicular to fit line and the wire coordinates. Then a circle around the
-    X Y wire coorindates is found with its radius being the drift velocity multiplied by the drift time
-    The intersects of the line and circle is found and the closest of the two values to the fit line is returned
-    If the time is 0 the wire coorindates are returned.
+    This function finds the line passing through the wire coordinate, perpendicular to the fit line, and finds the point on this line a distance
+    drift_time*drift velocity away from the wire coordinate in the direction towards the fit line.
     */
     int n = e.get_hit_number();
     for (int i=0; i<n;++i)
     {
-        double x = e[i][1];
-        double y = e[i][2];
-        double r = e[i][3] * e.get_velocity();
-
+        
         if (e[i][3] == 0)
         {
             e[i].set_hit_pos(e[i][1],e[i][2]);
@@ -285,34 +280,20 @@ void hit_finder(event& e)
 
         else
         {
+            double x = e[i][1];
+            double y = e[i][2];
+            double r = e[i][3] * e.get_velocity();
+            double d = short_res(e.get_fit_intercept(),e.get_fit_gradient(),x,y);
+
             double m = -1/e.get_fit_gradient();
             double c = -m*x+ y;
+            double x_intercept = (c - e.get_fit_intercept())/(e.get_fit_gradient() - m);
+            
+            double y_intercept = m*x_intercept + c;
+            double x_new = ((x_intercept-x) * (r/d))+x;
+            double y_new = ((y_intercept-y) * (r/d))+y;
+            e[i].set_hit_pos(x_new,y_new);
 
-            //perpendicular line passing through the wire coorindates where y_perp = m*x_perp + c
-
-            double A = (1+m*m);
-            double B = 2*(m*c-m*y - x);
-            double C = (y*y - r*r + x*x - 2*c*y + c*c);
-
-            //analytical coefficient of a quadratic formula found by equating the line and a circle around the point
-
-            double x_plus = (-B+std::sqrt(B*B - 4*A*C))/(2*A);
-            double x_minus = (-B-std::sqrt(B*B - 4*A*C))/(2*A);
-
-            // Pair of solutions to the quadratic equation
-
-            double y_plus = m*x_plus + c;
-            double y_minus = m*x_minus + c;
-
-            if (short_res(e.get_fit_intercept(),e.get_fit_gradient(),x_plus,y_plus) < short_res(e.get_fit_intercept(),e.get_fit_gradient(),x_minus,y_minus))
-            {
-                e[i].set_hit_pos(x_plus,y_plus);
-            }
-            else
-            {
-                e[i].set_hit_pos(x_minus,y_minus);
-            }
-            //Simple check to see which of the x,y coorindate pairs found is closest to the fit line
         }
     }
 }
