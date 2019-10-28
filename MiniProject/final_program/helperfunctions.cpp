@@ -187,7 +187,6 @@ void error_least_squares(event& e, fitting_parameters& fp)
     double numerator = 0.0;
     double X_mean = 0.0;
     double Y_mean = 0.0;
-    double W_mean = 0.0;
     double denominator = 0.0;
     double d_error = e.get_velocity()/e.get_velocity_error();
     /*
@@ -204,18 +203,17 @@ void error_least_squares(event& e, fitting_parameters& fp)
 
     for (int i=0; i<n; ++i)
     {
-        X_mean += d_error*e[i][4];
-        Y_mean += d_error*e[i][5];
-        W_mean += d_error;
+        X_mean += e[i][4];
+        Y_mean += e[i][5];
     }
 
-    X_mean = X_mean/W_mean;
-    Y_mean = Y_mean/W_mean;
+    X_mean = X_mean/n;
+    Y_mean = Y_mean/n;
 
     for (int i=0; i<n; ++i)
     {
-        numerator += d_error*(e[i][4]-X_mean)*(e[i][5]-Y_mean);
-        denominator += d_error*(e[i][4]-X_mean)*(e[i][4]-X_mean);
+        numerator += (e[i][4]-X_mean)*(e[i][5]-Y_mean);
+        denominator += (e[i][4]-X_mean)*(e[i][4]-X_mean);
     }
 
     double gradient = numerator/denominator;
@@ -234,12 +232,6 @@ void error_least_squares(event& e, fitting_parameters& fp)
 
     e.update_fit(intercept,gradient,standard_Error);
 
-    for (int i=0; i<n; ++i){
-        double res = short_res(intercept,gradient,e[i][4],e[i][5]);
-        if (res > 0.3){
-            e.remove_hit(i);
-        }
-    }
 }
 
 void drift_time_calculation(event& e, fitting_parameters& fp)
@@ -315,6 +307,7 @@ event track_finder(event& E, fitting_parameters& fp)
     A fit can be deemed as bad if it has fewer than 4 hit points left, or it iterates more than 10 times, these events are discarded 
     */
     weighted_least_squares(E,no_weight,false,fp);
+
 
     weighted_least_squares(E,inverse_weight,false,fp);
     drift_time_calculation(E,fp);

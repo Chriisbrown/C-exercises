@@ -40,17 +40,20 @@ for i in range(8):
 
 
 X_3 = np.linspace(-1,9,100)
-Y_3 = func(X_3,0.0909037,1.97734)
-plt.plot(X_3,Y_3,color='g',linewidth=0.5)
+Y_3 = func(X_3,0.08333,2.08333)
+#plt.plot(X_3,Y_3,color='g',linewidth=0.5)
 
 
-Y_u = func(X_3,0.0909037+0.000104184,1.97734)
-plt.plot(X_3,Y_u,color='g',ls='-',linewidth=0.1)
+Y_u = func(X_3,0.08799927,2.00087)
+#plt.plot(X_3,Y_u,color='m',linewidth=0.5)
 
-Y_l = func(X_3,0.0909037-0.000104184,1.97734)
-plt.plot(X_3,Y_l,color='g',ls='-',linewidth=0.1)
+Y_l = func(X_3,0.0909037,1.97734)
+#plt.plot(X_3,Y_l,color='b',linewidth=1)
+
+plt.xlabel("X")
+plt.ylabel("Y")
 
 plt.xlim(-0.5,7.5)
 plt.ylim(0,8)
 plt.grid()
-plt.show()
+plt.savefig("nofit.png",dpi=600)
