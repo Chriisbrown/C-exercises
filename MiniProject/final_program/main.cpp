@@ -15,7 +15,7 @@ The ROOT header files for TFile and TNtuple are also included for data storage
 class range_error{};
 class value_error{};
 
-//Error classes used to prevent eraneous user inpt
+//Error classes used to prevent erroneous user inpt
 
 int main(){
     fitting_parameters fp;

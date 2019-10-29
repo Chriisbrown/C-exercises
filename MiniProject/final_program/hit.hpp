@@ -20,7 +20,7 @@ class hit
         double &operator[] (int); //Overload of indexing for the hit allows for iterations invloving some hit[i]
 
         hit(const hit& h) : id{h.id}, x_coordinate{h.x_coordinate} , y_coordinate{h.y_coordinate} , drift_time{h.drift_time} {}; //copy constructor
-        //User if a new hit is initialized as a different hit
+        //Used if a new hit is initialized as a different hit
 
         void set_values(int&, int& , int& , int&); //Allows the private data members to be updated
 
@@ -42,5 +42,4 @@ class hit
 
 
 #endif
-
-//Stops the re-including of the iostream include 
+ 

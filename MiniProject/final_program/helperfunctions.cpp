@@ -38,10 +38,10 @@ double bitextractor(short buf, int length, int position)
 }
 //This function takes a short (16 bit) buffer of bits and extracts a given number of them from a given position used for extracting the X,Y and T coordinates
 // First the buffer is shifted right by the given position. It is then compared via a bitwise & to a set of 1s of the given length. e.g extract 3 bits from positon 3
-//want to extract                                                     ↓↓↓
-//buffer                                                    buf = 0110001001
+//we want to extract                                                  ↓↓↓
+//from this buffer                                          buf = 0110001001
 //                                                                       ↓↓↓
-//shifted by 3                                              buf = 0000110001
+//buffer shifted by 3 to the right                          buf = 0000110001
 //bitwsise compare & to set of 3 1s                                      111 
 //1 comapered to 1 is true and 0 visa versa                              001
 // Return these bits casted as a double
@@ -118,10 +118,12 @@ double no_weight(double r){ return 1.0; }
 
 void weighted_least_squares(event& e, double (*f)(double), bool hit,fitting_parameters& fp)
 {
-    //Initial fitting function, is is passed a single event, a weighting function and boolean switch used to update which tolerance and hit values to use.
-    // THe first fits are based on the X and Y coordiantes of the sensor wires. Once these fits have provided a sutiable drift velocity an estimated positon
-    // where the track produced the drift electrons passed through. These points are far closer to the fit line and so a more stringent tolerance is used to 
-    // remove any hits that are too far from the fit line
+    /*
+    Initial fitting function, is is passed a single event, a weighting function and boolean switch used to update which tolerance and hit values to use.
+    The first fits are based on the X and Y coordiantes of the sensor wires. Once these fits have provided a sutiable drift velocity an estimated positon
+    where the track produced the drift electrons passed through. These points are far closer to the fit line and so a more stringent tolerance is used to 
+    remove any hits that are too far from the fit line
+     */
     int shift = 0;
     double tolerance = fp.initial_tolerance;
 
@@ -152,8 +154,7 @@ void weighted_least_squares(event& e, double (*f)(double), bool hit,fitting_para
         // f(r) passed r to the given weighting function, when the no weight function is passed this algorithm does a least squares fit
     }
     X_mean = X_mean/W_mean;
-    Y_mean = Y_mean/W_mean;
-    //Calculation of means 
+    Y_mean = Y_mean/W_mean; 
 
     for (int i=0; i<n; ++i)
     {
@@ -197,7 +198,7 @@ void error_least_squares(event& e, fitting_parameters& fp)
     be performed analytically. In the interest of efficiency this choice is made, and the errors in the fit are very low making this a reasonable
     choice to make.
 
-    Just the velocity errors are included here and not the propagation of errors in the timing that woudl further increase the error on the hit positions
+    Just the velocity errors are included here and not the propagation of errors in the timing that would further increase the error on the hit positions
     This choice is made as the velocity error is calculated from the error in the time and to prevent the same errors being propagated twice just the velocity
     error is considered.
     */ 

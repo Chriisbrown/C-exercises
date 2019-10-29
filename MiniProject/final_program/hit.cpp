@@ -1,4 +1,5 @@
 #include "hit.hpp"
+//Extended hit function declerations
 
 hit& hit::operator=(const hit& h)
 {
@@ -14,7 +15,8 @@ hit& hit::operator=(const hit& h)
 double& hit::operator[] (int index)
 {
     double* def = 0;
-    switch (index){ //Allows for hit[i] functionality, decreasing code complexity, a switch is used to determine which variable is returned
+    switch (index)
+    { //Allows for hit[i] functionality, decreasing code complexity, a switch is used to determine which variable is returned
         case 0: return id;
         case 1: return x_coordinate;
         case 2: return y_coordinate;
@@ -23,7 +25,7 @@ double& hit::operator[] (int index)
         case 5: return hit_position[1];
 
         default: return *def; //Though unused this default will return a reference to a 0 variable, included for completeness
-        }
+    }
 }
 
 void hit::set_values(int& n, int&x, int& y, int& t)
@@ -47,5 +49,5 @@ std::ostream& operator<<(std::ostream& os, const hit& h)
     return os;
     //<< operator overload which simplifies printing function for the event class, instead of each variable needing to be printed
     // the overloaded function will print the entire hit data when the << call to print is used. Also allows the functionality for
-    // this printing to be done to a file with the ostream instead of specifically std::cout
+    // this printing to be done to a file with the ostream instead of specifically cout
 }

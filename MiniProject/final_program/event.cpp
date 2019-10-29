@@ -1,4 +1,5 @@
 #include "event.hpp"
+//Extended event class function decleration
 
 event& event::read_hit(hit& h1)
 {
@@ -14,7 +15,7 @@ void event::print()
         std::cout << h;
     }
 }
-//Full printing of each event with all the hit coorindates and timings, using the overloaded << operator on the h1
+//Full printing of each event with all the hit coordindates and timings, using the overloaded << operator on the hits
 
 void event::quick_print()
 {
