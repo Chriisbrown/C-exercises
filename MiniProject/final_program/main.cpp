@@ -1,7 +1,10 @@
 #include "TFile.h"
 #include "TNtuple.h"
+#include "TH1F.h"
+#include "TF1.h"
+#include "event.hpp"
+#include "hit.hpp"
 #include <chrono>
-#include "helperfunctions.cpp"
 
 /*
 Main function for running the trackfinding algorithm. A menu based user interface is provided in order to allow the user to differentiate between
@@ -58,7 +61,13 @@ int main(){
             filename = "manytracks.raw";
             event_start = 0;
             total_event_no = 1000000;
-            buffer_size = 100000;
+            buffer_size = 10000;
+            double mean_velocity = 0;
+            double velocity_weight = 0;
+            double mean_angle = 0;
+            double angle_weight = 0;
+            double std_velocity = 0;
+            double std_angle = 0;
 
             //Full dataset used with 1E6 events, a buffer is used to decrease memory usage, this buffer_size can be adapted for specific cases, 1E5 was found to give
             //the best performance
@@ -68,6 +77,8 @@ int main(){
 
             TFile *f = new TFile("tracks.root","recreate","Drift Velocity and Track Angle Histograms");
             TNtuple *ntuple = new TNtuple("ntuple","Drift Velocity and Track Angle Data","velocity:v_e:fit:f_e");
+            TH1F *velocityh = new TH1F("vh","Drift Velocity Histogram",100,26.1,26.5);
+            TH1F *angleh = new TH1F("ah","Track Angle Histogram",100,0,20);
 
             //ROOT file and Ntuple declared, Ntuple used to store data for further analysis
             
@@ -81,15 +92,28 @@ int main(){
                     E = track_finder(E,fp);
                     if (E.check_fit_status())
                         {
-                            double m = square(1/(1+square(E.get_velocity()))) * square(E.get_fit_error()) * square(std::atan(E.get_fit_gradient()));
+                            double atan = std::atan(E.get_fit_gradient());
+                            double m = square(1/(1+square(E.get_velocity()))) * square(E.get_fit_error()) * square(atan);
                             // calculates the error in the fit gradient as an error on the track angle
-                            ntuple->Fill(E.get_velocity(),E.get_velocity_error()/E.get_velocity(),std::atan(E.get_fit_gradient()),std::sqrt(m));
+                            ntuple->Fill(E.get_velocity(),E.get_velocity_error()/E.get_velocity(),atan,std::sqrt(m));
+                            velocityh->Fill(E.get_velocity()*1e4,(E.get_velocity_error()/E.get_velocity()));
+                            angleh->Fill(atan*(180/3.141592654),atan/(std::sqrt(m)));
                             // fill the datafile with velocity, velocity error, track angle and track angle error
                         }
                     else
                         continue;
                 }    
             }
+            std::cout << "============ Fit Parameters ===============" << std::endl;
+            velocityh->Fit("gaus","Quiet");
+            angleh->Fit("gaus","Quiet");
+            TF1 *vfit = velocityh->GetFunction("gaus");
+            TF1 *afit = angleh->GetFunction("gaus");
+            std::cout << "Mean Velocity: " << vfit->GetParameter(1) << " +/- " << vfit->GetParError(1) << " microns/ns " << std::endl;
+            std::cout << "Velocity Sigma: " << vfit->GetParameter(2) << " +/- " << vfit->GetParError(2) << " microns/ns " << std::endl;
+            std::cout << "Mean Angle: " << afit->GetParameter(1) << " +/- " << afit->GetParError(1) << " degrees " << std::endl;
+            std::cout << "Angle Sigma: " << afit->GetParameter(2) << " +/- " << afit->GetParError(2) << " degrees " << std::endl;
+
 
             f->Write();
             f->Close();

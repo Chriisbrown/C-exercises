@@ -42,7 +42,7 @@ def fit_function(x, A, mu, sigma):
     return (A * np.exp(-1.0 * (x - mu)**2 / (2 * sigma**2)))
     #Gaussian function for fitting
 
-fig,ax2 = plt.subplots()
+fig,[ax1,ax2] = plt.subplots(1,2)
 #set the fig and axes object
 
 events = uproot.open("tracks.root")['ntuple']
@@ -57,22 +57,21 @@ a.fit = a.fit*180/np.pi
 a.f_e = a.f_e*180/np.pi
 #scale the velocity
 
-#fitting("Drift Velocity",a["velocity"],a["v_e"],26.1,26.5,26.27106,4.356848e-03,ax1)
+fitting("Drift Velocity",a["velocity"],a["v_e"],26.1,26.5,26.27106,4.356848e-03,ax1)
 fitting("Track Angle",a["fit"],a["f_e"],0.0,0.35*180/np.pi,0.156749*180/np.pi,0.040079456*180/np.pi,ax2)
 #fit the drift velocity and the track angle based on the data in the ntuple
 
-#ax1.set_title("Drift Velocity Distribution")
+ax1.set_title("Drift Velocity Distribution")
 ax2.set_title("Track Angle Distribution")
-#ax1.set_xlabel("Drift Velocity $(\mu m /  ns)$")
+ax1.set_xlabel("Drift Velocity $(\mu m /  ns)$")
 ax2.set_ylabel("Normalised Events")
 ax2.set_xlabel("Track Angle (Degrees)")
-#ax1.set_xlim(26.1,26.5)
+ax1.set_xlim(26.1,26.5)
 ax2.set_xlim(0.0,0.35*180/np.pi)
 ax2.legend(loc='best')
-#ax1.grid()
+ax1.grid()
 ax2.grid()
 fig.tight_layout()
-plt.savefig("angle.png", dpi=600)
 plt.show()
 
 #Plot it
