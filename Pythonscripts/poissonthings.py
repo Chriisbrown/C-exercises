@@ -1,9 +1,13 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+from scipy import integrate
 
 
+def func(x,mu,sigma):
+    return (1/(np.sqrt(2*np.pi)*sigma) * np.exp(-(x-mu)**2/(2*sigma**2)))
 
+print(integrate.quad(func,a=-np.inf,b=0.44,args=(1,0.14)))
 
 mus = [3.41,3.42]
 
