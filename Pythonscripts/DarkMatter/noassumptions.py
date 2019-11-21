@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy import integrate
 
 N = 1.276e-27*6.02e26*1e6
+
 A = (0.26909*129 + 0.21232*131 + 0.26909*132 + 0.10436*134 + 0.08857*136 + 0.04071*130 + 0.01910*128)
 rho = 0.3*1e6
 v_0 = 22 / 3e4
@@ -11,7 +12,7 @@ detector_mass = 5600*1/1.276e-27*1e6
 detector_time = 1000*86400
 detector_range = (5,30)
 number_of_events = 4
-
+print(N/A)
 
 v_max = np.inf
 
